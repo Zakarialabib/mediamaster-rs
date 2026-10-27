@@ -5,13 +5,13 @@ use mediamaster_core::types::RoomState;
 use mediamaster_sensors::FusionEngine;
 
 #[test]
-fn fusion_priority_motion_trumps_light() {
+fn fusion_motion_plus_low_light_is_person_present() {
     let mut engine = FusionEngine::new();
     engine.update("light", SensorReading::Light(10.0));
     assert_eq!(engine.current_state(), RoomState::LowLight);
 
     engine.update("pir", SensorReading::MotionDetected);
-    assert_eq!(engine.current_state(), RoomState::Occupied);
+    assert_eq!(engine.current_state(), RoomState::PersonPresent);
 }
 
 #[test]

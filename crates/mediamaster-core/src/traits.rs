@@ -1,4 +1,13 @@
 //! Async hardware traits shared across domains.
+//!
+//! These traits are the **adapter surface**: `tv-rs`, `cctv-rs`, and any
+//! hardware backend implement them to plug into the mediamaster ecosystem.
+//! Downstream users can import them directly from the crate root
+//! (`mediamaster_core::AudioSource`) thanks to the re-exports in `lib.rs`.
+
+// Re-export types that live in `types` so existing code that imports them
+// via `mediamaster_core::traits::{Signal, SensorReading}` keeps compiling.
+pub use crate::types::{SensorReading, Signal};
 
 /// A source that yields PCM frames into a caller-supplied buffer.
 ///
@@ -22,36 +31,16 @@ pub trait AsyncSensor: Send + Sync {
     async fn read(&self) -> SensorReading;
 }
 
-/// One debounced sensor reading.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum SensorReading {
-    MotionDetected,
-    Proximity(f32),
-    Light(f32),
-    Occupancy,
-    Open,
-    Closed,
-    Unknown,
-}
-
 /// A detector that scans a magnitude spectrum and finds signal peaks.
 ///
 /// User types implement this to define what a "signal" looks like (e.g. a
 /// specific carrier, burst shape, or protocol preamble). The RF pipeline calls
 /// this after the FFT stage; no dependency on any SDR vendor here.
 pub trait SignalDetector: Send + Sync {
-    /// Return the number of peaks found, writing them into `out`.
-    fn detect(&self, magnitude: &[f32], out: &mut Vec<Signal>) -> usize;
-
     /// The convolution threshold (only magnitudes above this count as peaks).
     fn threshold(&self) -> f32;
-}
 
-/// A detected RF signal — whatever a user's detector decides it is.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Signal {
-    pub id: String,
-    pub confidence: f32,
-    pub start_sample: usize,
-    pub magnitude_peak: f32,
+    /// Scan `magnitude`, writing detected peaks into `out`. Returns the number
+    /// of peaks written.
+    fn detect(&self, magnitude: &[f32], out: &mut Vec<Signal>) -> usize;
 }

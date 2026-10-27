@@ -11,8 +11,10 @@ traits; no domain is integrated into the signage app directly.
 
 ```
 core ← audio
-core ← rf   ← (nom, rustfft, num-complex 0.4)
+core ← rf    ← (nom, rustfft, num-complex 0.4)
 core ← sensors ← (embedded-hal-async)
+simple-signage → core + audio  (publish = false)
+integration-tests → core + audio + rf + sensors  (publish = false)
 ```
 
 `mediamaster-core` is the root: every other crate depends on it. There are **no
@@ -24,10 +26,14 @@ orthogonal domains that happen to share the `core` vocabulary.
 Shared types, traits, and the async event bus.
 
 - **`traits`**: `AudioSource` (PCM frame producer), `AsyncSensor` (async sensor
-  poll), `SignalDetector` (FFT peak detection), `SignalSource` (I/Q producer).
-- **`types`**: `BoundingBox`, `RadioBurst`, `Signal`, `AudioTarget`.
-- **`events`**: `EventBus` (broadcast channel wrapper), `HardwareEvent` enum.
-- **`error`**: `MediamasterError` — single error type for the workspace.
+  poll), `SignalDetector` (FFT peak detection). `Signal` and `SensorReading`
+  now live in `types` (re-exported from `traits` for backward compat).
+- **`types`**: `BoundingBox` (with `area()`), `RadioBurst`, `Signal` (serde),
+  `AudioTarget`, `RoomState`, `SensorReading` (serde + `priority()`).
+- **`events`**: `EventBus` (broadcast channel, `#[must_use]` on `publish`/`subscribe`),
+  `HardwareEvent` enum (`AudioDuckRequest`, `SensorContextChange`, `RadioBurstDetected`, `CctvMotionDetected`).
+- **`error`**: `MediamasterError` — single error type; `Other(String)` +
+  `context()` for arbitrary error wrapping.
 
 Key decisions:
 - `async fn` in traits (Rust 1.75+ native, behind `#[allow(async_fn_in_trait)]`).
@@ -41,8 +47,8 @@ Lock-free PCM mixing with per-source ducking.
 
 - **`Source`**: `AudioSource::read_pcm(&self, &mut [f32]) -> usize` — fill a
   caller-supplied buffer, return frame count.
-- **`Mixer`**: `add_source`, `mix(&mut self) -> Vec<f32>` — sums all sources,
-  applies a `DuckingProfile`, and drains into a `ringbuf::HeapRb<f32>`.
+- **`Mixer`**: `add_source`, `mix(&mut self) -> Vec<f32>`, `set_ducking(f32)` —
+  summing all sources, applies ducking, and drains into a `ringbuf::HeapRb<f32>`.
 - **`Sink`** (cpal, feature-gated): `LockRead` trait + `AudioSink` struct
   for the OS audio output thread.
 - **`DuckingProfile`**: linear / exponential / instant curves from 1.0 → target.
@@ -62,8 +68,8 @@ Async sensor polling with debouncing and context fusion.
 - **`SensorAggregator`**: `HashMap<String, SensorReading>` — `update(id, reading)`
   replaces the latest value per sensor.
 - **`FusionEngine`**: `current_state() -> RoomState` — priority-ordered checks
-  (motion > proximity <10cm > light <50 lux) so HashMap iteration order never
-  affects the result.
+  (motion + low-light → `PersonPresent`; motion only → `Occupied`; proximity
+  <10 cm → `PersonPresent`; light <50 lux → `LowLight`; else `Empty`).
 
 ## `mediamaster-rf`
 
@@ -78,12 +84,31 @@ SDR I/Q pipeline: acquire → detect → decode.
 - **`pipeline`**: `AcquisitionStage` — wraps an `IqSource` + `SignalDetector`
   into an async acquisition loop with graceful shutdown via `CancellationToken`.
 
-## Tooling
+## `mediamaster-simple-signage` (bridge, `publish = false`)
+
+SimpleSignage adapter — the **library-side seam** described in `MIGRATION.md` §3.
+Speaks the SimpleSignage vocabulary (`SimpleSignageAudioStream`) and adapts it to
+the core `AudioSource` trait.
+
+- **`SimpleSignageAudioStream`**: app-side PCM stream contract (`read_pcm`,
+  `label`, `is_priority`).
+- **`SimpleSignageAudioSource`**: wraps any `SimpleSignageAudioStream` as an
+  `AudioSource`; stores `priority` flag for future mix ordering.
+- **`AudioEngine`**: owns a `Mixer`; `add_source`/`add_signage_source`/
+  `signage_stream`/`set_ducking`/`ducking`/`mix_step`/`subscribe`/
+  `process_events`. Behind the `audio-cpal` feature:
+  `into_cpal_sink()` hands the `Mixer` to `AudioSink::start`.
+
+## `mediamaster-integration-tests` (workspace-only, `publish = false`)
+
+Cross-crate e2e tests that simulate a SimpleSignage application consuming
+all four crates: RF detection → `EventBus` → `FusionEngine`.
 
 | Tool | Command |
 |------|---------|
 | Build | `cargo check --workspace` |
 | Lint | `cargo clippy --workspace --all-targets -- -D warnings` |
-| Test | `cargo test --workspace` (22 tests) |
+| Test | `cargo test --workspace` (50+ tests) |
 | Format | `cargo fmt` |
-| MSRV | Rust 1.94 (per `workspace.package.rust-version`) |
+| MSRV | Rust 1.95 (per `rust-toolchain.toml`) |
+| CI | `cargo clippy --workspace --all-features --all-targets -- -D warnings` |

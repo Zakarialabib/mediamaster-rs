@@ -14,5 +14,7 @@ pub mod source;
 
 pub use ducking::{DuckingCurve, DuckingProfile};
 pub use mixer::Mixer;
+#[cfg(feature = "audio-cpal")]
+pub use sink::AudioSink;
 pub use sink::LockRead;
 pub use source::MediaSourceAdapter;

@@ -36,23 +36,33 @@ impl HardwareEvent {
 }
 
 /// A broadcast-style event bus. All crates publish to it; adapters subscribe.
+///
+/// Internally wraps `tokio::sync::broadcast`. Subscribers receive a
+/// `broadcast::Receiver` that can be polled with `recv()` (async) or
+/// `try_recv()` (sync). If the channel buffer fills while no subscriber is
+/// reading, `publish` returns `false` (event was dropped).
 pub struct EventBus {
     sender: broadcast::Sender<HardwareEvent>,
+    capacity: usize,
 }
 
 impl EventBus {
     /// Create a new bus with the given subscriber capacity.
     pub fn new(capacity: usize) -> Self {
         let (sender, _) = broadcast::channel(capacity);
-        Self { sender }
+        Self { sender, capacity }
     }
 
     /// Subscribe to the event stream.
+    #[must_use]
     pub fn subscribe(&self) -> broadcast::Receiver<HardwareEvent> {
         self.sender.subscribe()
     }
 
-    /// Publish an event to all subscribers.
+    /// Publish an event to all current subscribers.
+    ///
+    /// Returns `false` if there are no subscribers or the channel is full.
+    #[must_use]
     pub fn publish(&self, event: HardwareEvent) -> bool {
         self.sender.send(event).is_ok()
     }
@@ -66,6 +76,11 @@ impl EventBus {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// The capacity of each subscriber's lag buffer.
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
 }
 
 #[cfg(test)]
@@ -77,6 +92,7 @@ mod tests {
         let bus = EventBus::new(16);
         assert!(bus.is_empty());
         assert_eq!(bus.len(), 0);
+        assert_eq!(bus.capacity(), 16);
     }
 
     #[test]

@@ -21,4 +21,22 @@ pub enum MediamasterError {
 
     #[error("runtime error: {0}")]
     Runtime(String),
+
+    #[error("unsupported: {0}")]
+    Unsupported(String),
+
+    #[error("{0}")]
+    Other(String),
+}
+
+impl MediamasterError {
+    /// Wrap this error with additional context, returning a `Runtime` variant.
+    pub fn context(self, ctx: &str) -> Self {
+        Self::Runtime(format!("{ctx}: {self}"))
+    }
+
+    /// Create an `Other` error from any displayable message.
+    pub fn other(msg: impl std::fmt::Display) -> Self {
+        Self::Other(msg.to_string())
+    }
 }

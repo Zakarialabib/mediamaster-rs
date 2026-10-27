@@ -1,6 +1,6 @@
 [package]
 name = "mediamaster-sensors"
-version = "0.1.0"
+version = "0.1.1"
 description = "Async sensor polling, debouncing, and context fusion for the mediamaster-rs ecosystem"
 authors = ["SignageMaster Team <team@signage-master.example.com>"]
 edition = "2021"

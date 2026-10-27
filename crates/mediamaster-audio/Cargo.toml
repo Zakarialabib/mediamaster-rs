@@ -1,6 +1,6 @@
 [package]
 name = "mediamaster-audio"
-version = "0.1.0"
+version = "0.1.1"
 description = "Lock-free PCM mixing, ducking, and routing for the mediamaster-rs ecosystem"
 authors = ["SignageMaster Team <team@signage-master.example.com>"]
 edition = "2021"

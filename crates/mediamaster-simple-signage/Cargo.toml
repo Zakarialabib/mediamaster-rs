@@ -1,0 +1,29 @@
+[package]
+name = "mediamaster-simple-signage"
+version = "0.1.0"
+description = "SimpleSignage adapter: bridges signage app audio streams into mediamaster-rs"
+edition = "2021"
+rust-version = "1.94"
+license = "Apache-2.0"
+repository.workspace = true
+documentation = "https://docs.rs/mediamaster-simple-signage"
+keywords = ["signage", "audio", "adapter", "tauri"]
+categories = ["multimedia::audio", "embedded"]
+publish = false
+
+[dependencies]
+mediamaster-core = { path = "../mediamaster-core", version = "0.1.0" }
+mediamaster-audio = { path = "../mediamaster-audio", version = "0.1.0" }
+tokio = { version = "1", features = ["sync"] }
+
+[features]
+default = []
+audio-cpal = ["mediamaster-audio/audio-cpal", "cpal"]
+
+[dependencies.cpal]
+version = "0.15"
+optional = true
+
+[lib]
+name = "mediamaster_simple_signage"
+path = "src/lib.rs"

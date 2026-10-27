@@ -14,14 +14,11 @@ const OUTPUT_CAPACITY: usize = 8192;
 
 /// A mixer that reads from several sources, applies a global ducking
 /// multiplier, and writes mixed PCM to an output ring buffer.
-///
-/// Sources are added up-front (via [`Mixer::add_source`]); `mix` needs
-/// `&mut self` because the ring buffer's push/pop require exclusive access.
 pub struct Mixer {
     sources: Vec<Box<dyn AudioSource>>,
     ducking: f32,
     /// `UnsafeCell` is the only legal way to obtain `&mut` from `&self`,
-    /// which `LockRead::read_f32` (cpal callback) needs. In the non-cpal
+    /// which the `cpal` callback (via `LockRead`) needs. In the non-cpal
     /// path, `mix(&mut self)` already has exclusive access.
     output: UnsafeCell<HeapRb<f32>>,
 }
@@ -55,6 +52,47 @@ impl Mixer {
         self.ducking = ducking.clamp(0.0, 1.0);
     }
 
+    /// Collect one batch (512 frames) from each source.
+    fn collect_mixed(&self) -> Vec<Vec<f32>> {
+        self.sources
+            .iter()
+            .map(|s| {
+                let mut buf = vec![0.0f32; 512];
+                let n = s.read_pcm(&mut buf);
+                buf.truncate(n);
+                buf
+            })
+            .collect()
+    }
+
+    /// Push one mixed batch into the output ring (SPSC producer, `&self`).
+    /// Ducking is applied per-sample. Does NOT drain — leaves samples for the
+    /// consumer (`mix` or the `LockRead` cpal callback) to pop.
+    fn push_mixed(&self, frames: &[Vec<f32>]) {
+        let ducking = self.ducking();
+        // SAFETY: SPSC — the only writer here; the reader pops via `LockRead`.
+        let rb = unsafe { &mut *self.output.get() };
+        let max_len = frames.iter().map(|f| f.len()).max().unwrap_or(0);
+        for i in 0..max_len {
+            let mut sum = 0.0f32;
+            for frame in frames {
+                if let Some(&sample) = frame.get(i) {
+                    sum += sample;
+                }
+            }
+            let _ = rb.push(sum * ducking);
+        }
+    }
+
+    /// Producer path for the `audio-cpal` sink: read all sources, push mixed
+    /// frames into the ring, and do NOT drain — the cpal callback drains via
+    /// [`LockRead`]. Safe because the ring is SPSC (see the `Sync` impl).
+    #[cfg(feature = "audio-cpal")]
+    pub fn feed(&self) {
+        let frames = self.collect_mixed();
+        self.push_mixed(&frames);
+    }
+
     /// Mix all sources into the output ring and return the resulting frames.
     ///
     /// Each source is read into a stack buffer, then per-sample summing is
@@ -63,34 +101,11 @@ impl Mixer {
     /// collected samples so callers can immediately consume them (e.g. write to
     /// a `cpal` stream or encode to a file).
     pub fn mix(&mut self) -> Vec<f32> {
-        let ducking = self.ducking();
+        let frames = self.collect_mixed();
+        self.push_mixed(&frames);
 
-        // Phase 1 — collect one batch from each source.
-        let frames: Vec<Vec<f32>> = self
-            .sources
-            .iter()
-            .map(|s| {
-                let mut buf = vec![0.0f32; 512];
-                let n = s.read_pcm(&mut buf);
-                buf.truncate(n);
-                buf
-            })
-            .collect();
-
-        // Phase 2 — sum per sample index with ducking, push to output ring.
+        // SAFETY: `&mut self` gives exclusive access — safe to drain.
         let rb = unsafe { &mut *self.output.get() };
-        let max_len = frames.iter().map(|f| f.len()).max().unwrap_or(0);
-        for i in 0..max_len {
-            let mut sum = 0.0f32;
-            for frame in &frames {
-                if let Some(&sample) = frame.get(i) {
-                    sum += sample;
-                }
-            }
-            let _ = rb.push(sum * ducking);
-        }
-
-        // Phase 3 — drain the output ring for the caller.
         let mut out = Vec::with_capacity(OUTPUT_CAPACITY);
         while let Some(v) = rb.pop() {
             out.push(v);
@@ -111,9 +126,9 @@ impl crate::sink::LockRead for Mixer {
         use ringbuf::Rb;
 
         // SAFETY: SPSC semantics — the cpal callback thread is the sole
-        // consumer here; `mix` (the producer) runs on a different thread.
-        // `SharedRb` uses atomic head/tail pointers so concurrent push/pop
-        // is hardware-safe.
+        // consumer here; `mix` / `feed` (the producer) runs on a different
+        // thread. `SharedRb` uses atomic head/tail pointers so concurrent
+        // push/pop is hardware-safe.
         let rb = unsafe { &mut *self.output.get() };
 
         let mut count = 0;
@@ -182,6 +197,35 @@ mod tests {
         let out = mixer.mix();
         // Each sample from the source is 0.5; with ducking 1.0 it stays 0.5.
         assert!(out.iter().all(|s| *s == 0.5));
+        assert!(!out.is_empty());
+    }
+
+    #[test]
+    fn ducking_halves_output() {
+        let mut mixer = Mixer::new();
+        mixer.set_ducking(0.5);
+        mixer.add_source(Box::new(ConstantSource {
+            label: "test".into(),
+            value: 1.0,
+        }));
+        let out = mixer.mix();
+        assert!(out.iter().all(|s| *s == 0.5));
+        assert!(!out.is_empty());
+    }
+
+    #[test]
+    fn two_sources_sum() {
+        let mut mixer = Mixer::new();
+        mixer.add_source(Box::new(ConstantSource {
+            label: "a".into(),
+            value: 0.3,
+        }));
+        mixer.add_source(Box::new(ConstantSource {
+            label: "b".into(),
+            value: 0.4,
+        }));
+        let out = mixer.mix();
+        assert!(out.iter().all(|s| (*s - 0.7).abs() < 1e-6));
         assert!(!out.is_empty());
     }
 }
