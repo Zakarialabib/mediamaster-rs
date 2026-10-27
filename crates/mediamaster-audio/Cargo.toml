@@ -1,0 +1,30 @@
+[package]
+name = "mediamaster-audio"
+version = "0.1.0"
+description = "Lock-free PCM mixing, ducking, and routing for the mediamaster-rs ecosystem"
+authors = ["SignageMaster Team <team@signage-master.example.com>"]
+edition = "2021"
+rust-version = "1.94"
+license = "Apache-2.0"
+
+[dependencies]
+mediamaster-core = { path = "../mediamaster-core" }
+ringbuf = { version = "0.3", features = ["alloc"] }
+
+# Audio capture/output backends (enable per target).
+cpal = { version = "0.15", optional = true }
+
+# Media decode helpers (optional).
+symphonia = { version = "0.5", optional = true, default-features = false, features = ["mp3"] }
+
+[features]
+default = []
+# OS audio backends (compile the right cpal backend for the target).
+# On Rust 2021 targets a default backend is picked automatically.
+audio-cpal = ["cpal"]
+# Decode media assets into PCM (requires a `cpal` target and `ffmpeg`).
+decode = ["symphonia"]
+
+[lib]
+name = "mediamaster_audio"
+path = "src/lib.rs"

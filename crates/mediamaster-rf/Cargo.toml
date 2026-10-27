@@ -1,0 +1,28 @@
+[package]
+name = "mediamaster-rf"
+version = "0.1.0"
+description = "SDR IQ pipeline, FFT detection, and protocol parsing for the mediamaster-rs ecosystem"
+authors = ["SignageMaster Team <team@signage-master.example.com>"]
+edition = "2021"
+rust-version = "1.94"
+license = "Apache-2.0"
+
+[dependencies]
+mediamaster-core = { path = "../mediamaster-core" }
+
+# DSP (FFT + detection).
+rustfft = "6.1"
+num-complex = "0.4"
+
+# Binary protocol parsing.
+nom = "7.1"
+
+[features]
+default = []
+# Real SDR hardware backends (optional).
+# Enable rtl-sdr for `rtlsdr`-based capture.
+rtl-sdr = []
+
+[lib]
+name = "mediamaster_rf"
+path = "src/lib.rs"

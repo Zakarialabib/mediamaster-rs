@@ -1,0 +1,17 @@
+[package]
+name = "mediamaster-core"
+version = "0.1.0"
+description = "Shared event bus, traits, and types for the mediamaster-rs ecosystem"
+authors = ["SignageMaster Team <team@signage-master.example.com>"]
+edition = "2021"
+rust-version = "1.94"
+license = "Apache-2.0"
+
+[dependencies]
+tokio = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[lib]
+name = "mediamaster_core"
+path = "src/lib.rs"

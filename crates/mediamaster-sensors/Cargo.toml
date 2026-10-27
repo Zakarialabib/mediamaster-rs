@@ -1,0 +1,24 @@
+[package]
+name = "mediamaster-sensors"
+version = "0.1.0"
+description = "Async sensor polling, debouncing, and context fusion for the mediamaster-rs ecosystem"
+authors = ["SignageMaster Team <team@signage-master.example.com>"]
+edition = "2021"
+rust-version = "1.94"
+license = "Apache-2.0"
+
+[dependencies]
+mediamaster-core = { path = "../mediamaster-core" }
+tokio = { workspace = true }
+
+# Standard async HAL for real hardware (optional — no_std capable).
+embedded-hal-async = { version = "1", optional = true }
+
+[features]
+default = []
+# Bind to real hardware (I2C/SPI/UART) behind `embedded-hal-async`.
+hw = ["embedded-hal-async"]
+
+[lib]
+name = "mediamaster_sensors"
+path = "src/lib.rs"
