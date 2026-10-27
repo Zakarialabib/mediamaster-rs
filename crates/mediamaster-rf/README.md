@@ -5,7 +5,7 @@ SDR baseband DSP pipeline: IQ acquisition, FFT detection, and protocol parsing.
 ## What it provides
 
 - `IqSource` — the acquisition trait (RTL-SDR / SoapySDR / synthetic).
-- `Pipeline` — the 3-stage async pipeline: acquire → FFT/detect → parse.
+- `AcquisitionStage` — the 3-stage async pipeline: acquire → FFT/detect → parse.
 - `MagnitudeDetector` — `rustfft`-backed FFT + peak detector, implements
   `SignalDetector` from `mediamaster-core` so the event bus can be fed.
 - `ProtocolParser` — `nom` combinators for sync word → header → payload → CRC.
@@ -16,17 +16,25 @@ SDR baseband DSP pipeline: IQ acquisition, FFT detection, and protocol parsing.
 SDR hardware
    │
    ▼
-IqSource → acquire() ──▶ Stage 2 (FFT + SignalDetector)
+IqSource → acquire() ──▶ AcquisitionStage::run()
    │                               │
    ▼                               ▼
-Stage 1 (batch)           RadioBurstDetected ──▶ EventBus
-   │
-   ▼
-IqBatch ───▶ Stage 3 (ProtocolParser  ──▶ emit event
+IqBatch (loop)         MagnitudeDetector::detect() → Signal
+   │                               │
+   ▼                               ▼
+Stage 3 (ProtocolParser ──▶  emit RadioBurstDetected
+         parse_sync)        to EventBus
 ```
 
-## Examples
+## Usage
 
-- `decode_433mhz_weather.rs`
-- `custom_protocol.rs`
-- `rtl_sdr_capture.rs`
+```rust
+use mediamaster_rf::{MagnitudeDetector, ProtocolParser};
+use mediamaster_core::traits::SignalDetector;
+
+let detector = MagnitudeDetector::new(256, -30.0);
+let magnitudes = vec![0.1, 0.8, 0.3, 0.9];
+let mut signals = Vec::new();
+let peaks = detector.detect(&magnitudes, &mut signals);
+// peaks == 2, signals[0].id == "1", signals[1].id == "3"
+```

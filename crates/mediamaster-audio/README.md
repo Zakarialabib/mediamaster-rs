@@ -4,31 +4,37 @@ Lock-free PCM mixing, ducking, and routing.
 
 ## What it provides
 
-- `Mixer` — fan-in an arbitrary number of `AudioSource` implementations through
-  per-source `ringbuf` queues, with a global ducking multiplier.
+- `Mixer` — fan-in an arbitrary number of `AudioSource` implementations, with a
+  global `DuckingProfile` applied before writing to the output ring buffer.
 - `DuckingProfile` — a ducking curve (instant / linear / exponential) that
   interpolates the output level over time.
-- `AudioSink` — a `cpal` stream writer that drains the output ring to OS audio.
 - `MediaSourceAdapter` — reference bridge from another hardware domain (e.g.
   `tv-rs`) into `AudioSource`.
+- `AudioSink` (feature `audio-cpal`) — cpal stream writer that drains the output
+  ring to OS audio.
 
 ## Data flow
 
-1. Sources push PCM into their own ring buffers.
-2. `Mixer::mix` reads each buffer, applies per-source gain, then applies the
-   global ducking multiplier, and writes to the output ring.
-3. `cpal` callback drains the output ring (zero allocations, zero blocking).
+1. Sources are added to the `Mixer` as `Box<dyn AudioSource>`.
+2. `Mixer::mix` reads each source, sums frames, applies ducking, and drains the
+   internal `HeapRb` into a `Vec<f32>`.
+3. With the `audio-cpal` feature, `AudioSink` opens the default device and
+   schedules drain callback to the cpal thread.
 
 ## Integration with `tv-rs`
 
 ```rust
 use mediamaster_audio::Mixer;
+use mediamaster_audio::MediaSourceAdapter;
 
 let mut mixer = Mixer::new();
 
 // Bridge the tv-rs decoder into AudioSource.
-mixer.add_source(MediaSourceAdapter::dummy("tv-rs ch0"));
+mixer.add_source(Box::new(MediaSourceAdapter::dummy("tv-rs ch0")));
 
-// Continuously drain the output ring to the default device.
-AudioSink::open_default()?.start(&mixer);
+// Mix the current frame batch.
+let pcm = mixer.mix();
 ```
+
+> The `audio-cpal` feature (`AudioSink::open_default`, `start`) is wired but
+> not yet exercised in tests. See the **next phase** plan in `docs/architecture.md`.
