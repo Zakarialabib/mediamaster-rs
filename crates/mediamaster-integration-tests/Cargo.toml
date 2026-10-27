@@ -1,14 +1,14 @@
 [package]
 name = "mediamaster-integration-tests"
 version = "0.1.0"
-description = "Cross-crate integration tests demonstrating the mediamaster-rs adapter pattern (SimpleSignage use case)."
+description = "Cross-crate integration tests for the mediamaster-rs ecosystem (no external case study)"
 edition = "2021"
 rust-version = "1.94"
-license = "Apache-2.0"
+license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
-mediamaster-core = { path = "../mediamaster-core" }
-mediamaster-sensors = { path = "../mediamaster-sensors" }
-mediamaster-rf = { path = "../mediamaster-rf" }
-mediamaster-audio = { path = "../mediamaster-audio" }
+mediamaster-core = { path = "../mediamaster-core", version = "0.1.1" }
+mediamaster-rf = { path = "../mediamaster-rf", version = "0.1.0" }
+mediamaster-sensors = { path = "../mediamaster-sensors", version = "0.1.0" }
+mediamaster-audio = { path = "../mediamaster-audio", version = "0.1.1" }

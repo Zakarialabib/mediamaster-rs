@@ -84,25 +84,10 @@ SDR I/Q pipeline: acquire → detect → decode.
 - **`pipeline`**: `AcquisitionStage` — wraps an `IqSource` + `SignalDetector`
   into an async acquisition loop with graceful shutdown via `CancellationToken`.
 
-## `mediamaster-simple-signage` (bridge, `publish = false`)
+## `mediamaster-integration-tests` (workspace-only)
 
-SimpleSignage adapter — the **library-side seam** described in `MIGRATION.md` §3.
-Speaks the SimpleSignage vocabulary (`SimpleSignageAudioStream`) and adapts it to
-the core `AudioSource` trait.
-
-- **`SimpleSignageAudioStream`**: app-side PCM stream contract (`read_pcm`,
-  `label`, `is_priority`).
-- **`SimpleSignageAudioSource`**: wraps any `SimpleSignageAudioStream` as an
-  `AudioSource`; stores `priority` flag for future mix ordering.
-- **`AudioEngine`**: owns a `Mixer`; `add_source`/`add_signage_source`/
-  `signage_stream`/`set_ducking`/`ducking`/`mix_step`/`subscribe`/
-  `process_events`. Behind the `audio-cpal` feature:
-  `into_cpal_sink()` hands the `Mixer` to `AudioSink::start`.
-
-## `mediamaster-integration-tests` (workspace-only, `publish = false`)
-
-Cross-crate e2e tests that simulate a SimpleSignage application consuming
-all four crates: RF detection → `EventBus` → `FusionEngine`.
+Cross-crate integration tests that exercise the shared trait vocabulary
+(`mediamaster-core`) and the domain crates (`audio`, `rf`, `sensors`).
 
 | Tool | Command |
 |------|---------|

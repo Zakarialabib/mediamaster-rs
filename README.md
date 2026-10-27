@@ -1,24 +1,28 @@
-[![CI](https://github.com/Zakarialabib/mediamaster-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/Zakarialabib/mediamaster-rs/actions/workflows/ci.yml)
+![CI](https://github.com/Zakarialabib/mediamaster-rs/actions/workflows/ci.yml/badge.svg)
+![crates.io](https://img.shields.io/crates/v/mediamaster-core)
+![crates.io](https://img.shields.io/crates/v/mediamaster-audio)
+![crates.io](https://img.shields.io/crates/v/mediamaster-rf)
+![crates.io](https://img.shields.io/crates/v/mediamaster-sensors)
+
 # mediamaster-rs
 
-> **Hardware media-masteration ecosystem** — a shared foundation *alongside* `tv-rs`
-> (broadcast) and `cctv-rs` (security camera).
+> Shared hardware media vocabulary for Rust sign-age & streamer apps.
 
-The four crates are **orthogonal domains** that share one vocabulary. Nothing here
-integrates audio, SDR, or sensors into the signage app directly — `tv-rs`, `cctv-rs`,
-and the signage frontends (`signage-master` Windows app, `signage-master-companion`
-Android) **adapt** them by implementing this crate's traits.
+`mediamaster-rs` is a small workset of **orthogonal, runtime-free-core** Rust crates
+that share one vocabulary. Each crate solves a single domain. Nothing here is a
+UI, a launcher, or a hardware driver — it is the vocabulary that the call and the
+phone companion share.
 
 ## Workspace layout
 
 ```text
 mediamaster-rs/
-├── Cargo.toml              # workspace root
+├── Cargo.toml
 └── crates/
-    ├── mediamaster-core/     # events, traits, shared types
-    ├── mediamaster-audio/    # PCM mixing, ducking, cpal sink
-    ├── mediamaster-rf/        # SDR IQ pipeline, FFT detection, protocol parsing
-    └── mediamaster-sensors/   # async sensor polling, debouncing, context fusion
+    ├── mediamaster-core/  # events, traits, shared types
+    ├── mediamaster-audio/ # PCM mixing, ducking, cpal sink
+    ├── mediamaster-rf/    # SDR IQ pipeline, FFT detection, protocol parsing
+    └── mediamaster-sensors/ # sensor polling, debouncing, context fusion
 ```
 
 ## Crate matrix
@@ -30,24 +34,56 @@ mediamaster-rs/
 | `mediamaster-rf` | SDR IQ pipeline, FFT detection, protocol parsing | `mediamaster-core`, `rustfft`, `nom`, `num-complex` |
 | `mediamaster-sensors` | Async sensor polling, debouncing, context fusion | `mediamaster-core`, `embedded-hal-async`, `tokio` |
 
-## Build
+## Crates.io
 
-```sh
-cargo check --workspace          # verify compilation
-cargo clippy --workspace --all-targets -- -D warnings   # lint
-cargo test --workspace           # 22 unit tests
+| Crate | Version |
+|-------|---------|
+| [mediamaster-core](https://crates.io/crates/mediamaster-core) | ![0.1.1](https://img.shields.io/crates/v/mediamaster-core) |
+| [mediamaster-audio](https://crates.io/crates/mediamaster-audio) | ![0.1.1](https://img.shields.io/crates/v/mediamaster-audio) |
+| [mediamaster-rf](https://crates.io/crates/mediamaster-rf) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-rf) |
+| [mediamaster-sensors](https://crates.io/crates/mediamaster-sensors) | ![0.1.1](https://img.shields.io/crates/v/mediamaster-sensors) |
+
+## How a call uses these crates
+
+Each crate is a **trait library**. The call application (or any host that wants to
+use mediamaster-rs) implements the traits on its hardware adapters and wires the
+crates together. Nothing in this workspace is tied to one application.
+
+For example, a TV-signage Tauri app that wants to play audio while detecting motion
+works like this:
+
+```text
+┌─ TV app (Tauri) ────────────────────────────────┬─ Phone app (Android) ──┐
+│  add `AudioSource` adapter for TV audio         │  show signage frames   │
+│  add `AsyncSensor` for motion/light             │  subscribe to events   │
+│  call `Mixer::mix_step()` every frame           │  render signage    │
+└─────────────────────────────────────────────────┴──────────────────────────┘
+```
+
+## Integration pattern
+
+```rust
+use mediamaster_core::traits::{AudioSource, AsyncSensor};
+use mediamaster_audio::Mixer;
+use mediamaster_sensors::FusionEngine;
+
+// 1. Implement the traits on your host (the call or the phone app).
+//    The calls are *pure*: no hardware handling inside mediamaster-rs itself.
+
+// 2. Combine them in your application.
+let mut engine = FusionEngine::new();
+let mut mixer = Mixer::new();
 ```
 
 ## Design principles
 
-- **No runtime dependency** in `core` beyond `tokio` + `serde`.
+- **No runtime dependency** in `core` beyond `tokio` + `serde` + `thiserror`.
 - **Zero-alloc hot paths**: `AudioSource::read_pcm` writes into a caller-supplied buffer.
 - **`async fn` in traits** throughout (Rust 1.75+ native).
-- **Lock-free SPSC** ring buffers between SDR read thread and consumer pipeline.
 - **Priority-ordered** sensor fusion (motion > proximity > light) so map iteration order never affects output.
 
 ## Docs
 
 - [architecture.md](docs/architecture.md) — crate-by-crate architecture
 - [docs/masteraudio-rs.md](docs/masteraudio-rs.md) — original design notes
-- [docs/MEDIA-SCOPE-SPEC.md](docs/MEDIA-SCOPE-SPEC.md) — scope specification
+- [CHANGELOG.md](CHANGELOG.md) — release history
