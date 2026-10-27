@@ -9,7 +9,7 @@ license = "Apache-2.0"
 repository.workspace = true
 documentation = "https://docs.rs/mediamaster-audio"
 keywords = ["audio", "mixing", "ducking", "pcm", "cpal"]
-categories = ["audio", "embedded"]
+categories = ["multimedia::audio", "embedded"]
 
 [dependencies]
 mediamaster-core = { path = "../mediamaster-core", version = "0.1.0" }
