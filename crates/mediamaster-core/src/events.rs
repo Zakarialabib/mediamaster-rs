@@ -18,7 +18,10 @@ pub enum HardwareEvent {
     /// An RF burst was detected in the spectrum.
     RadioBurstDetected { burst: RadioBurst },
     /// A CCTV camera reported motion.
-    CctvMotionDetected { camera: String, bounding_box: BoundingBox },
+    CctvMotionDetected {
+        camera: String,
+        bounding_box: BoundingBox,
+    },
 }
 
 impl HardwareEvent {

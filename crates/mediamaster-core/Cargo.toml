@@ -6,6 +6,10 @@ authors = ["SignageMaster Team <team@signage-master.example.com>"]
 edition = "2021"
 rust-version = "1.94"
 license = "Apache-2.0"
+repository.workspace = true
+documentation = "https://docs.rs/mediamaster-core"
+keywords = ["audio", "sdr", "sensors", "traits", "events"]
+categories = ["embedded", "hardware-support", "no-std"]
 
 [dependencies]
 tokio = { workspace = true }

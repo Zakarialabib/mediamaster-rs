@@ -43,16 +43,20 @@ impl DuckingProfile {
                 }
             }
             DuckingCurve::Linear => 1.0 - (1.0 - self.target) * (t / dur),
-            DuckingCurve::Exponential => 1.0
-                - (1.0 - self.target)
-                    * (1.0 - (-t / (dur / 2.0).max(1.0))),
+            DuckingCurve::Exponential => {
+                1.0 - (1.0 - self.target) * (1.0 - (-t / (dur / 2.0).max(1.0)))
+            }
         }
     }
 }
 
 impl Default for DuckingProfile {
     fn default() -> Self {
-        Self { curve: DuckingCurve::Exponential, duration_ms: 300, target: Self::FULL_MUTE }
+        Self {
+            curve: DuckingCurve::Exponential,
+            duration_ms: 300,
+            target: Self::FULL_MUTE,
+        }
     }
 }
 

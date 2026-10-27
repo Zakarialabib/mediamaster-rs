@@ -32,7 +32,10 @@ impl FusionEngine {
     pub fn current_state(&self) -> RoomState {
         // Priority 1: motion/occupancy trumps everything.
         for reading in self.readings.values() {
-            if matches!(reading, SensorReading::MotionDetected | SensorReading::Occupancy) {
+            if matches!(
+                reading,
+                SensorReading::MotionDetected | SensorReading::Occupancy
+            ) {
                 return RoomState::Occupied;
             }
         }

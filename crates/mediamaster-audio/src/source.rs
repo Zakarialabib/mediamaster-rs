@@ -18,7 +18,10 @@ enum MediaSource {
 
 impl MediaSourceAdapter {
     pub fn dummy(label: impl Into<String>) -> Self {
-        Self { inner: MediaSource::Dummy, label: label.into() }
+        Self {
+            inner: MediaSource::Dummy,
+            label: label.into(),
+        }
     }
 }
 

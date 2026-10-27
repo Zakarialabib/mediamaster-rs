@@ -6,9 +6,13 @@ authors = ["SignageMaster Team <team@signage-master.example.com>"]
 edition = "2021"
 rust-version = "1.94"
 license = "Apache-2.0"
+repository.workspace = true
+documentation = "https://docs.rs/mediamaster-audio"
+keywords = ["audio", "mixing", "ducking", "pcm", "cpal"]
+categories = ["audio", "embedded"]
 
 [dependencies]
-mediamaster-core = { path = "../mediamaster-core" }
+mediamaster-core = { path = "../mediamaster-core", version = "0.1.0" }
 ringbuf = { version = "0.3", features = ["alloc"] }
 
 # Audio capture/output backends (enable per target).

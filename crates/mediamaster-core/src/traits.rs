@@ -1,6 +1,5 @@
 //! Async hardware traits shared across domains.
 
-
 /// A source that yields PCM frames into a caller-supplied buffer.
 ///
 /// `tv-rs` and `cctv-rs` adapters implement this by extracting PCM from their

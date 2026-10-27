@@ -8,7 +8,5 @@ pub mod debouncer;
 pub mod fusion;
 pub mod sensor;
 
-pub use aggregator::SensorAggregator;
 pub use debouncer::DebouncedSensor;
 pub use fusion::FusionEngine;
-pub use sensor::AsyncSensor;

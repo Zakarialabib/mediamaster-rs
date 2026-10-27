@@ -5,6 +5,7 @@ resolver = "2"
 
 [workspace.package]
 rust-version = "1.94"
+repository = "https://github.com/Zakarialabib/mediamaster-rs"
 
 [workspace.dependencies]
 tokio = { version = "1", features = ["sync", "macros"] }

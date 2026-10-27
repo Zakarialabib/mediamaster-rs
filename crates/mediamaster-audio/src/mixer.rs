@@ -3,6 +3,8 @@
 //! (SPSC), so a separate thread or the `cpal` callback drains it without
 //! blocking the async runtime.
 
+use std::cell::UnsafeCell;
+
 use mediamaster_core::traits::AudioSource;
 use ringbuf::HeapRb;
 use ringbuf::Rb;
@@ -13,20 +15,30 @@ const OUTPUT_CAPACITY: usize = 8192;
 /// A mixer that reads from several sources, applies a global ducking
 /// multiplier, and writes mixed PCM to an output ring buffer.
 ///
-/// Sources are added up-front (via [`Mixer::add_source`]); mixing itself only
-/// needs `&self` because the ring buffer uses interior mutability.
+/// Sources are added up-front (via [`Mixer::add_source`]); `mix` needs
+/// `&mut self` because the ring buffer's push/pop require exclusive access.
 pub struct Mixer {
     sources: Vec<Box<dyn AudioSource>>,
     ducking: f32,
-    output: HeapRb<f32>,
+    /// `UnsafeCell` is the only legal way to obtain `&mut` from `&self`,
+    /// which `LockRead::read_f32` (cpal callback) needs. In the non-cpal
+    /// path, `mix(&mut self)` already has exclusive access.
+    output: UnsafeCell<HeapRb<f32>>,
 }
+
+// SAFETY: `HeapRb` (`SharedRb`) uses atomic head/tail pointers internally,
+// making it safe for SPSC access from two threads. The `sources` and `ducking`
+// fields are only mutated through `&mut self` methods, so concurrent access
+// via `&self` (the `LockRead` impl) is safe for the ring buffer alone.
+#[cfg(feature = "audio-cpal")]
+unsafe impl Sync for Mixer {}
 
 impl Mixer {
     pub fn new() -> Self {
         Self {
             sources: Vec::new(),
             ducking: 1.0,
-            output: HeapRb::new(OUTPUT_CAPACITY),
+            output: UnsafeCell::new(HeapRb::new(OUTPUT_CAPACITY)),
         }
     }
 
@@ -66,6 +78,7 @@ impl Mixer {
             .collect();
 
         // Phase 2 — sum per sample index with ducking, push to output ring.
+        let rb = unsafe { &mut *self.output.get() };
         let max_len = frames.iter().map(|f| f.len()).max().unwrap_or(0);
         for i in 0..max_len {
             let mut sum = 0.0f32;
@@ -74,12 +87,12 @@ impl Mixer {
                     sum += sample;
                 }
             }
-            let _ = self.output.push(sum * ducking);
+            let _ = rb.push(sum * ducking);
         }
 
         // Phase 3 — drain the output ring for the caller.
         let mut out = Vec::with_capacity(OUTPUT_CAPACITY);
-        while let Some(v) = self.output.pop() {
+        while let Some(v) = rb.pop() {
             out.push(v);
         }
         out
@@ -89,6 +102,31 @@ impl Mixer {
 impl Default for Mixer {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(feature = "audio-cpal")]
+impl crate::sink::LockRead for Mixer {
+    fn read_f32(&self, buffer: &mut [f32]) -> usize {
+        use ringbuf::Rb;
+
+        // SAFETY: SPSC semantics — the cpal callback thread is the sole
+        // consumer here; `mix` (the producer) runs on a different thread.
+        // `SharedRb` uses atomic head/tail pointers so concurrent push/pop
+        // is hardware-safe.
+        let rb = unsafe { &mut *self.output.get() };
+
+        let mut count = 0;
+        for slot in buffer.iter_mut() {
+            match rb.pop() {
+                Some(v) => {
+                    *slot = v;
+                    count += 1;
+                }
+                None => break,
+            }
+        }
+        count
     }
 }
 
@@ -137,7 +175,10 @@ mod tests {
     #[test]
     fn single_source_passes_through_with_unit_ducking() {
         let mut mixer = Mixer::new();
-        mixer.add_source(Box::new(ConstantSource { label: "test".into(), value: 0.5 }));
+        mixer.add_source(Box::new(ConstantSource {
+            label: "test".into(),
+            value: 0.5,
+        }));
         let out = mixer.mix();
         // Each sample from the source is 0.5; with ducking 1.0 it stays 0.5.
         assert!(out.iter().all(|s| *s == 0.5));

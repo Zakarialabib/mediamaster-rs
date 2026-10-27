@@ -1,3 +1,4 @@
+[![CI](https://github.com/Zakarialabib/mediamaster-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/Zakarialabib/mediamaster-rs/actions/workflows/ci.yml)
 # mediamaster-rs
 
 > **Hardware media-masteration ecosystem** — a shared foundation *alongside* `tv-rs`

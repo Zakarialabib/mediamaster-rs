@@ -13,8 +13,8 @@
 
 use mediamaster_core::MediamasterError;
 
-use crate::iq_source::IqSource;
 use crate::iq_source::IqSample;
+use crate::iq_source::IqSource;
 
 /// Stage 1 — IQ Acquisition: blocking task reads raw I/Q samples from SDR
 /// hardware, batches them, and forwards to stage 2.

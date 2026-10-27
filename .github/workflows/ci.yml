@@ -14,11 +14,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          rust-version: 1.94
+      - uses: dtolnay/rust-toolchain@master
       - name: Check
         run: cargo check --workspace
+      - name: Format
+        run: cargo fmt --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test

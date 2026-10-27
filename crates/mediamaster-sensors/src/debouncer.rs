@@ -76,7 +76,7 @@ mod tests {
     fn emits_immediately_with_zero_window() {
         let mut db = DebouncedSensor::new(Duration::from_millis(0));
         assert!(db.update(SensorReading::Open).is_none()); // first call: starts window
-        // Same reading, window already elapsed → emits
+                                                           // Same reading, window already elapsed → emits
         assert_eq!(db.update(SensorReading::Open), Some(SensorReading::Open));
     }
 }
