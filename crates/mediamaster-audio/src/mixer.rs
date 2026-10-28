@@ -6,6 +6,7 @@
 use std::cell::UnsafeCell;
 
 use mediamaster_core::traits::AudioSource;
+use mediamaster_core::types::AudioTarget;
 use ringbuf::HeapRb;
 use ringbuf::Rb;
 
@@ -21,6 +22,8 @@ pub struct Mixer {
     /// which the `cpal` callback (via `LockRead`) needs. In the non-cpal
     /// path, `mix(&mut self)` already has exclusive access.
     output: UnsafeCell<HeapRb<f32>>,
+    endpoints: Vec<AudioTarget>,
+    zone_sync: bool,
 }
 
 // SAFETY: `HeapRb` (`SharedRb`) uses atomic head/tail pointers internally,
@@ -36,6 +39,8 @@ impl Mixer {
             sources: Vec::new(),
             ducking: 1.0,
             output: UnsafeCell::new(HeapRb::new(OUTPUT_CAPACITY)),
+            endpoints: Vec::new(),
+            zone_sync: false,
         }
     }
 
@@ -50,6 +55,22 @@ impl Mixer {
 
     pub fn set_ducking(&mut self, ducking: f32) {
         self.ducking = ducking.clamp(0.0, 1.0);
+    }
+
+    pub fn endpoints(&self) -> &[AudioTarget] {
+        &self.endpoints
+    }
+
+    pub fn set_endpoints(&mut self, endpoints: Vec<AudioTarget>) {
+        self.endpoints = endpoints;
+    }
+
+    pub fn zone_sync(&self) -> bool {
+        self.zone_sync
+    }
+
+    pub fn set_zone_sync(&mut self, zone_sync: bool) {
+        self.zone_sync = zone_sync;
     }
 
     /// Collect one batch (512 frames) from each source.
