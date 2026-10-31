@@ -237,7 +237,7 @@ mod tests {
                 assert!(zone_ids.contains(&"z1".to_string()));
                 assert!(zone_ids.contains(&"z2".to_string()));
                 assert_eq!(volume_db, -10.0);
-                assert_eq!(muted, false);
+                assert!(!muted);
             } else {
                 panic!("Wrong event type");
             }
