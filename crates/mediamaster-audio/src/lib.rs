@@ -11,6 +11,7 @@ pub mod ducking;
 pub mod mixer;
 pub mod sink;
 pub mod source;
+pub mod zones;
 
 pub use ducking::{DuckingCurve, DuckingProfile};
 pub use mixer::Mixer;
@@ -18,3 +19,4 @@ pub use mixer::Mixer;
 pub use sink::AudioSink;
 pub use sink::LockRead;
 pub use source::MediaSourceAdapter;
+pub use zones::{Zone, ZoneId, ZoneRouter, Zones};
