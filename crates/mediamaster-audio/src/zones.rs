@@ -20,7 +20,11 @@ pub trait ZoneRouter {
     fn assign_output(&mut self, zone_id: &ZoneId, device_id: Option<String>) -> Result<(), String>;
     fn set_zone_volume(&mut self, zone_id: &ZoneId, volume_db: f32) -> Result<(), String>;
     fn set_zone_mute(&mut self, zone_id: &ZoneId, muted: bool) -> Result<(), String>;
-    fn set_sync_group(&mut self, zone_id: &ZoneId, sync_group: Option<String>) -> Result<(), String>;
+    fn set_sync_group(
+        &mut self,
+        zone_id: &ZoneId,
+        sync_group: Option<String>,
+    ) -> Result<(), String>;
 }
 
 pub struct Zones<'a> {
@@ -44,21 +48,35 @@ impl<'a> Zones<'a> {
         self.zones.remove(zone_id)
     }
 
-    fn update_group_volume_or_mute(&mut self, sync_group: Option<&String>, volume_db: Option<f32>, muted: Option<bool>, zone_id: &ZoneId) -> Result<(), String> {
+    fn update_group_volume_or_mute(
+        &mut self,
+        sync_group: Option<&String>,
+        volume_db: Option<f32>,
+        muted: Option<bool>,
+        zone_id: &ZoneId,
+    ) -> Result<(), String> {
         let mut affected_zones = Vec::new();
 
         if let Some(group) = sync_group {
             for zone in self.zones.values_mut() {
                 if zone.sync_group.as_ref() == Some(group) {
-                    if let Some(v) = volume_db { zone.volume_db = v; }
-                    if let Some(m) = muted { zone.muted = m; }
+                    if let Some(v) = volume_db {
+                        zone.volume_db = v;
+                    }
+                    if let Some(m) = muted {
+                        zone.muted = m;
+                    }
                     affected_zones.push(zone.id.clone());
                 }
             }
         } else {
             if let Some(zone) = self.zones.get_mut(zone_id) {
-                if let Some(v) = volume_db { zone.volume_db = v; }
-                if let Some(m) = muted { zone.muted = m; }
+                if let Some(v) = volume_db {
+                    zone.volume_db = v;
+                }
+                if let Some(m) = muted {
+                    zone.muted = m;
+                }
                 affected_zones.push(zone.id.clone());
             } else {
                 return Err("Zone not found".to_string());
@@ -122,7 +140,11 @@ impl<'a> ZoneRouter for Zones<'a> {
         self.update_group_volume_or_mute(sg_ref, None, Some(muted), zone_id)
     }
 
-    fn set_sync_group(&mut self, zone_id: &ZoneId, sync_group: Option<String>) -> Result<(), String> {
+    fn set_sync_group(
+        &mut self,
+        zone_id: &ZoneId,
+        sync_group: Option<String>,
+    ) -> Result<(), String> {
         if let Some(zone) = self.zones.get_mut(zone_id) {
             zone.sync_group = sync_group;
             Ok(())
@@ -158,8 +180,13 @@ mod tests {
         assert!(found.is_some());
         assert_eq!(found.unwrap().id, "z1");
 
-        router.assign_output(&"z1".to_string(), Some("dev1".to_string())).unwrap();
-        assert_eq!(router.zone_by_name("Lobby").unwrap().output_device_id, Some("dev1".to_string()));
+        router
+            .assign_output(&"z1".to_string(), Some("dev1".to_string()))
+            .unwrap();
+        assert_eq!(
+            router.zone_by_name("Lobby").unwrap().output_device_id,
+            Some("dev1".to_string())
+        );
 
         router.delete_zone(&"z1".to_string());
         assert_eq!(router.list_zones().len(), 0);
@@ -200,7 +227,12 @@ mod tests {
         assert_eq!(z2_updated.volume_db, -10.0);
 
         if let Ok(event) = rx.try_recv() {
-            if let HardwareEvent::ZoneChanged { zone_ids, volume_db, muted } = event {
+            if let HardwareEvent::ZoneChanged {
+                zone_ids,
+                volume_db,
+                muted,
+            } = event
+            {
                 assert_eq!(zone_ids.len(), 2);
                 assert!(zone_ids.contains(&"z1".to_string()));
                 assert!(zone_ids.contains(&"z2".to_string()));

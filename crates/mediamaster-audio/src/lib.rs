@@ -14,9 +14,9 @@ pub mod source;
 pub mod zones;
 
 pub use ducking::{DuckingCurve, DuckingProfile};
-pub use zones::{Zone, ZoneId, ZoneRouter, Zones};
 pub use mixer::Mixer;
 #[cfg(feature = "audio-cpal")]
 pub use sink::AudioSink;
 pub use sink::LockRead;
 pub use source::MediaSourceAdapter;
+pub use zones::{Zone, ZoneId, ZoneRouter, Zones};
