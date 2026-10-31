@@ -22,6 +22,12 @@ pub enum HardwareEvent {
         camera: String,
         bounding_box: BoundingBox,
     },
+    /// An audio zone's volume or mute state changed.
+    ZoneChanged {
+        zone_ids: Vec<String>,
+        volume_db: f32,
+        muted: bool,
+    },
 }
 
 impl HardwareEvent {
@@ -31,6 +37,7 @@ impl HardwareEvent {
             HardwareEvent::SensorContextChange { .. } => "SensorContextChange",
             HardwareEvent::RadioBurstDetected { .. } => "RadioBurstDetected",
             HardwareEvent::CctvMotionDetected { .. } => "CctvMotionDetected",
+            HardwareEvent::ZoneChanged { .. } => "ZoneChanged",
         }
     }
 }

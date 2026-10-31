@@ -11,8 +11,10 @@ pub mod ducking;
 pub mod mixer;
 pub mod sink;
 pub mod source;
+pub mod zones;
 
 pub use ducking::{DuckingCurve, DuckingProfile};
+pub use zones::{Zone, ZoneId, ZoneRouter, Zones};
 pub use mixer::Mixer;
 #[cfg(feature = "audio-cpal")]
 pub use sink::AudioSink;
