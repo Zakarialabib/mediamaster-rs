@@ -1,8 +1,12 @@
 # Migration & integration plan — mediamaster-rs → external signage apps
 
-> **Status:** current as of 2026-10-27 · **Audience:** launcher agent + core team
-> **Companion specs:** `masteraudio-rs.md` (crate design) · `MEDIA-SCOPE-SPEC.md` (media domain spec)
-> **Workspace state:** `cargo check --workspace` green; `cargo test --workspace` → 50+ passed; `cargo fmt --check` clean; `audio-cpal` feature builds.
+> **Status:** current as of 2026-11-01 · **Audience:** launcher agent + core team
+> **Companion docs:** [`masteraudio-rs.md`](docs/masteraudio-rs.md) (crate design &
+> backlog) · [`architecture.md`](docs/architecture.md) (crate-by-crate) ·
+> [`MEDIA-SCOPE-SPEC.md`](docs/MEDIA-SCOPE-SPEC.md) (future `media-scope` spec)
+> **Workspace state:** `cargo fmt --check` clean · `cargo clippy --workspace
+> --all-features --all-targets -- -D warnings` clean · `cargo test --workspace
+> --all-features` → **70 tests** passing.
 
 ## 1. Goal
 
@@ -11,11 +15,11 @@ foundation that sits *alongside* `tv-rs` (broadcast) and `cctv-rs` (security
 camera). The workspace does **not** contain a signage application. Instead it
 provides the crates that the signage apps implement:
 
-- `Simple-Signage dekstop windows app` (Tauri desktop player) — external repository
+- `Simple-Signage desktop windows app` (Tauri desktop player) — external repository
 - `companion-app mobile android app` (phone/home-companion) — external repository
 
 Both apps implement the traits in `mediamaster-core` and wire them to the domain
-crates. They interact through the `EventBus` (cross-process via a shared load).
+crates. They interact through the `EventBus`.
 
 ## 2. What we take FROM `mediamaster-rs` (and why)
 
@@ -24,10 +28,11 @@ signage player itself:
 
 | From crate | Re-used capability | Drop-in target |
 |---|---|---|
-| `mediamaster-core` | `EventBus` (broadcast), `AudioSource` trait, `HardwareEvent` | the apps' bridge/adapter layer |
-| `mediamaster-audio` | `Mixer` (SPSC ringbuf), `DuckingProfile`, `AudioSink` (cpal) | the call's audio engine |
+| `mediamaster-core` | `EventBus` (broadcast), `AudioSource`/`AsyncSensor`/`SignalDetector` traits, `HardwareEvent` | the apps' adapter layer |
+| `mediamaster-audio` | `Mixer` (SPSC ringbuf), `DuckingProfile`, `Zones`, `AudioSink` (cpal) | the call's audio engine |
 | `mediamaster-sensors` | `DebouncedSensor`, `FusionEngine`, `AsyncSensor` | the call's scene-controller |
-| `mediamaster-rf` | `SignalDetector`, `IqSource`, `AcquisitionStage` | the call's RF spectrum monitor |
+| `mediamaster-rf` | `SignalDetector`, `IqSource`, `OokDemodulator`, `Pipeline` | the call's RF spectrum monitor |
+| `mediamaster-bridge` | `AudioBridge`, `SensorBridge`, `RfBridge`, `EventHandlers` | ready-made facade the apps can adopt |
 
 **Design rule:** apps implement the traits; the crates do not depend on any
 application.
@@ -41,25 +46,30 @@ mediamaster-rs/
 ├── README.md
 ├── CHANGELOG.md
 └── crates/
-    ├── mediamaster-core/               # EventBus, AudioSource, AsyncSensor, HardwareEvent, types
-    ├── mediamaster-audio/              # Mixer (SPSC ringbuf), ducking, cpal sink
-    ├── mediamaster-rf/                 # IQ pipeline, MagnitudeDetector, parser
-    └── mediamaster-sensors/            # DebouncedSensor, FusionEngine
+    ├── mediamaster-core/               # EventBus, traits, shared types
+    ├── mediamaster-audio/              # Mixer (SPSC ringbuf), ducking, zones, cpal sink
+    ├── mediamaster-rf/                 # IQ pipeline, MagnitudeDetector, OOK demod, parser
+    ├── mediamaster-sensors/            # DebouncedSensor, FusionEngine
+    ├── mediamaster-bridge/             # app-integration facade (publish = false)
+    └── mediamaster-integration-tests/  # cross-crate tests (publish = false)
 ```
 
 ## 4. How the external signage apps use this workspace
 
 The two external applications adapt the crates through the shared traits.
-There is no bridge crate inside this workspace — each app wires the crates
-itself (via a `path` dependency on the local checkout, or by publishing the
-crates to crates.io and depending on the released versions).
+
+> **There is a bridge crate.** `mediamaster-bridge` is the in-repo facade: it
+> re-exports the domains behind `AudioBridge` / `SensorBridge` / `RfBridge` and
+> provides `EventHandlers` to route `EventBus` events. Apps can adopt the bridge
+> directly, or wire the domain crates themselves (the bridge is `publish = false`
+> today — apps use it via a `path` dependency on a local checkout).
 
 ### Signage desktop app (Tauri)
 - Implements `AudioSource` wrapping the `windows` audio stack (endpoint
   enumeration, per-app volume).
 - Implements `AsyncSensor` wrappers for PIR/motion and light sensors.
-- Owns a `Mixer` + `FusionEngine`; reacts to `AudioDuckRequest` /
-  `SensorContextChange` events from the bus.
+- Owns a `Mixer` + `FusionEngine`; runs `EventHandlers::run(bus)` (or its own
+  loop) to react to `AudioDuckRequest` / `SensorContextChange` events.
 
 ### Phone companion app (Android)
 - Implements the same traits behind an `ndk`/JNI audio path.
@@ -67,27 +77,25 @@ crates to crates.io and depending on the released versions).
   adaptation (e.g. low-light → dim display).
 
 > **No backwards-compat shim:** the two apps are written fresh against the
-> `mediamaster-core` + domain crates. Old ad-hoc scripts (if any) are removed
-> entirely per the user's deprecation rule.
+> `mediamaster-core` + domain crates, per the user's deprecation rule.
 
 ## 5. Reuse model (tv-rs style)
 
 `tv-rs`: `core` defines `Tuner`/traits; `windows`/`linux`/`macos` impl them;
 app selects at runtime. Here: `mediamaster-core` defines `AudioSource`/
-`AsyncSensor`/`SignalDetector`; the call/phone apps (or a file-based façade)
-implement them. Only the top of the stack is application-specific.
+`AsyncSensor`/SignalDetector`; the call/phone apps (or the `mediamaster-bridge`
+façade) implement/wire them. Only the top of the stack is application-specific.
 
-## 6. What the workspace is **not**
+## 6. Release status
 
-- Not a signage player (the apps are in separate repositories).
-- Not a library of hardcoded device drivers (the traits are the contract).
-- Not an audio/SDR/sensor engine bundled with the sign-age app (each app
-  composes the crates itself).
+- **Phase 1 (initial publish) — DONE:** `mediamaster-core` 0.1.1, `mediamaster-audio`
+  0.1.1, `mediamaster-rf` 0.1.0, `mediamaster-sensors` 0.1.1 are live on crates.io
+  (published 2026-10-27).
+- **Next release — 0.2.0:** the post-0.1.x work (bridge, EventHandlers, OOK demod,
+  3-stage pipeline, zones, ducking profiles) is unreleased. See
+  [`docs/RELEASE.md`](docs/RELEASE.md) for the coordinated publish plan.
+- **Phase 2 — pending:** the signage desktop + phone apps adapt the crates
+  (external repos).
+- **Phase 3 — pending:** `media-scope` extraction (follow-up, Phase 2 outcome).
 
-## 7. Backlog
-
-- [x] Phase 0 — `mediamaster-rs` crate suite built + verified (core/audio/rf/sensors).
-- [x] Phase 0.5 — cross-crate integration tests (workspace-level).
-- [x] Phase 1 — publish to crates.io (`core`, `audio`, `rf`, `sensors`).
-- [ ] Phase 2 — sign-age desktop app + phone app adapt the crates (external repos).
-- [ ] Phase 3 — RF-only feature flag, `media-scope` extraction (follow-up).
+> The full phase table lives in [`masteraudio-rs.md`](docs/masteraudio-rs.md) §6.

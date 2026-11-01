@@ -6,12 +6,12 @@
 
 # mediamaster-rs
 
-> Shared hardware media vocabulary for Rust sign-age & streamer apps.
+> Shared hardware media vocabulary for Rust signage & streamer apps.
 
-`mediamaster-rs` is a small workset of **orthogonal, runtime-free-core** Rust crates
-that share one vocabulary. Each crate solves a single domain. Nothing here is a
-UI, a launcher, or a hardware driver — it is the vocabulary that the call and the
-phone companion share.
+`mediamaster-rs` is a small workspace of **orthogonal, runtime-free-core** Rust
+crates that share one vocabulary. Each crate solves a single domain. Nothing
+here is a UI, a launcher, or a hardware driver — it is the vocabulary that the
+desktop call app and the phone companion app share.
 
 ## Workspace layout
 
@@ -19,20 +19,26 @@ phone companion share.
 mediamaster-rs/
 ├── Cargo.toml
 └── crates/
-    ├── mediamaster-core/  # events, traits, shared types
-    ├── mediamaster-audio/ # PCM mixing, ducking, cpal sink
-    ├── mediamaster-rf/    # SDR IQ pipeline, FFT detection, protocol parsing
-    └── mediamaster-sensors/ # sensor polling, debouncing, context fusion
+    ├── mediamaster-core/             # events, traits, shared types
+    ├── mediamaster-audio/            # PCM mixing, ducking, zones, cpal sink
+    ├── mediamaster-rf/               # SDR IQ pipeline, FFT, OOK demod, parsing
+    ├── mediamaster-sensors/          # sensor polling, debouncing, fusion
+    ├── mediamaster-bridge/           # app-integration facade (unpublished)
+    └── mediamaster-integration-tests # cross-crate tests (unpublished)
 ```
 
 ## Crate matrix
 
 | Crate | Purpose | Key dependencies |
 |-------|---------|------------------|
-| `mediamaster-core` | Shared event bus, traits, types | `tokio`, `serde` |
-| `mediamaster-audio` | Lock-free PCM mixing, ducking, routing | `mediamaster-core`, `cpal`, `ringbuf` |
-| `mediamaster-rf` | SDR IQ pipeline, FFT detection, protocol parsing | `mediamaster-core`, `rustfft`, `nom`, `num-complex` |
-| `mediamaster-sensors` | Async sensor polling, debouncing, context fusion | `mediamaster-core`, `embedded-hal-async`, `tokio` |
+| `mediamaster-core` | Shared event bus, traits, types | `tokio`, `serde`, `thiserror` |
+| `mediamaster-audio` | Lock-free PCM mixing, ducking, zones, routing | `mediamaster-core`, `ringbuf`; optional `cpal` (`audio-cpal`) |
+| `mediamaster-rf` | SDR IQ pipeline, FFT detection, OOK demod, protocol parsing | `mediamaster-core`, `rustfft`, `nom`, `num-complex` |
+| `mediamaster-sensors` | Async sensor polling, debouncing, context fusion | `mediamaster-core`, `tokio`; optional `embedded-hal-async` (`hw`) |
+| `mediamaster-bridge` | Unified facade for external apps + `EventBus` routing | `mediamaster-core`, `mediamaster-audio`, `mediamaster-rf`, `mediamaster-sensors` |
+
+`mediamaster-bridge` and `mediamaster-integration-tests` are `publish = false`
+— they exist for the in-repo apps/tests and are not released to crates.io.
 
 ## Crates.io
 
@@ -43,21 +49,21 @@ mediamaster-rs/
 | [mediamaster-rf](https://crates.io/crates/mediamaster-rf) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-rf) |
 | [mediamaster-sensors](https://crates.io/crates/mediamaster-sensors) | ![0.1.1](https://img.shields.io/crates/v/mediamaster-sensors) |
 
-## How a call uses these crates
+The next release (0.2.0) is planned — see [`docs/RELEASE.md`](docs/RELEASE.md).
 
-Each crate is a **trait library**. The call application (or any host that wants to
-use mediamaster-rs) implements the traits on its hardware adapters and wires the
-crates together. Nothing in this workspace is tied to one application.
+## How an app uses these crates
 
-For example, a TV-signage Tauri app that wants to play audio while detecting motion
-works like this:
+Each crate is a **trait library**. The app (a Tauri desktop player, an Android
+phone app, or any host) implements the traits on its hardware adapters and wires
+the crates together. Nothing in this workspace is tied to one application.
 
 ```text
-┌─ TV app (Tauri) ────────────────────────────────┬─ Phone app (Android) ──┐
-│  add `AudioSource` adapter for TV audio         │  show signage frames   │
-│  add `AsyncSensor` for motion/light             │  subscribe to events   │
-│  call `Mixer::mix_step()` every frame           │  render signage    │
-└─────────────────────────────────────────────────┴──────────────────────────┘
+┌─ Desktop call app (Tauri) ────────────────┬─ Phone companion (Android) ─┐
+│  impl `AudioSource` for TV audio          │  show signage frames        │
+│  impl `AsyncSensor` for motion/light      │  subscribe to events        │
+│  call `Mixer::mix()` every frame          │  render signage             │
+│  run `EventHandlers::run(bus)` to route   │                             │
+└───────────────────────────────────────────┴─────────────────────────────┘
 ```
 
 ## Integration pattern
@@ -67,8 +73,8 @@ use mediamaster_core::traits::{AudioSource, AsyncSensor};
 use mediamaster_audio::Mixer;
 use mediamaster_sensors::FusionEngine;
 
-// 1. Implement the traits on your host (the call or the phone app).
-//    The calls are *pure*: no hardware handling inside mediamaster-rs itself.
+// 1. Implement the traits on your host (the app's hardware adapters).
+//    The crates are *pure*: no hardware handling inside mediamaster-rs itself.
 
 // 2. Combine them in your application.
 let mut engine = FusionEngine::new();
@@ -81,9 +87,12 @@ let mut mixer = Mixer::new();
 - **Zero-alloc hot paths**: `AudioSource::read_pcm` writes into a caller-supplied buffer.
 - **`async fn` in traits** throughout (Rust 1.75+ native).
 - **Priority-ordered** sensor fusion (motion > proximity > light) so map iteration order never affects output.
+- **App-owned wiring**: the `EventBus` loop and hardware live in the app; the crates expose traits + facades.
 
 ## Docs
 
 - [architecture.md](docs/architecture.md) — crate-by-crate architecture
-- [docs/masteraudio-rs.md](docs/masteraudio-rs.md) — original design notes
+- [masteraudio-rs.md](docs/masteraudio-rs.md) — design notes & backlog
+- [RELEASE.md](docs/RELEASE.md) — release & crates.io publishing plan
+- [MEDIA-SCOPE-SPEC.md](docs/MEDIA-SCOPE-SPEC.md) — spec for the future `media-scope` extraction
 - [CHANGELOG.md](CHANGELOG.md) — release history

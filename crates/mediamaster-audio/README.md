@@ -46,4 +46,4 @@ The `Zones` module provides semantic addressing for audio outputs, bridging the 
 - **Typed Events:** Broadcasts `ZoneChanged` events to other crates within the ecosystem whenever volume/mute state updates.
 
 > The `audio-cpal` feature (`AudioSink::open_default`, `start`) is wired but
-> not yet exercised in tests. See the **next phase** plan in `docs/architecture.md`.
+> not exercised in tests — testing the sink path requires a real audio device.

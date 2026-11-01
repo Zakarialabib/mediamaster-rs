@@ -1,5 +1,30 @@
 # Changelog
 
+## [Unreleased]
+
+Work landed on `main` after the 0.1.x crates.io release (2026-10-27). Targets
+the coordinated **0.2.0** release — see [`docs/RELEASE.md`](docs/RELEASE.md).
+
+### Added
+- **mediamaster-bridge** (new workspace crate, `publish = false`): app-integration
+  facade — `AudioBridge`, `SensorBridge`, `RfBridge`, plus `EventHandlers` that
+  routes `EventBus` events (duck requests → mixer, sensor/RF results → recorded
+  state) and exposes `run(bus)` to subscribe/dispatch until the bus is dropped.
+- **mediamaster-rf**: `OokDemodulator` — OOK/ASK envelope demodulator (315/433 MHz
+  ISM standard) recovering a byte stream from I/Q; three-stage `Pipeline`
+  (acquisition → DSP → demod/parse) driven by the caller's tokio runtime.
+- **mediamaster-audio**: typed audio zones (`Zone`, `ZoneRouter`, `Zones`) with
+  sync-group volume/mute; smooth `DuckingProfile` / `DuckingCurve`
+  (instant / linear / exponential).
+
+### Changed
+- **mediamaster-rf (breaking)**: `Pipeline::new` now takes an `OokDemodulator`;
+  the `samples_to_bytes` placeholder is removed (superseded by the demodulator).
+  The default `ProtocolParser for ()` now reports the bytes after the sync word
+  as the payload (previously `payload_len = 0`).
+- **mediamaster-core (breaking)**: `HardwareEvent::ZoneChanged` variant added
+  (exhaustive matches downstream must handle it).
+
 ## [0.1.1] — 2026-10-27
 
 ### Added

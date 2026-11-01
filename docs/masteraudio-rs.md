@@ -67,8 +67,10 @@ mediamaster-rs/
 
 Each crate is independently publishable to crates.io. The workspace root only
 defines `workspace.package` + `workspace.dependencies` and re-exports nothing.
-`publish = false` is set on every crate today — releases are **held** until
-Phase 1 work is complete (see §6).
+`mediamaster-core`, `mediamaster-audio`, `mediamaster-rf`, and
+`mediamaster-sensors` are published (0.1.x on crates.io); `mediamaster-bridge`
+and `mediamaster-integration-tests` are `publish = false`. The next coordinated
+release is **0.2.0** — see [`RELEASE.md`](RELEASE.md).
 
 ---
 
@@ -114,7 +116,8 @@ A caller (a Tauri desktop player, an Android phone app, or anything else) does
 |-------|------|--------|
 | **Phase 0** | `mediamaster-rs` crate suite built + verified (core/audio/rf/sensors/bridge) | ✅ done (70 tests) |
 | **Phase 0.5** | Cross-crate integration tests (workspace-level) | ✅ done |
-| **Phase 1** | Publish to crates.io (`core`, `audio`, `rf`, `sensors`, `bridge`) | ⏸ **held** — `publish = false` on every crate; release after control plane + RF/SDR expansion is verified |
+| **Phase 1** | Publish to crates.io (`core`, `audio`, `rf`, `sensors`) | ✅ done — live at 0.1.x (2026-10-27) |
+| **Phase 1.5** | Coordinated **0.2.0** release (bridge, EventHandlers, OOK demod, 3-stage pipeline, zones, ducking) | ⏸ planned — see [`RELEASE.md`](RELEASE.md) |
 | **Phase 2** | Signage desktop app + phone app adapt the crates (external repos) | ⏸ pending |
 | **Phase 3** | `media-scope` extraction (follow-up, Phase 2 outcome) | ⏸ pending |
 

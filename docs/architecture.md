@@ -40,7 +40,7 @@ Shared types, traits, and the async event bus.
   `priority()`).
 - **`events`**: `EventBus` (broadcast channel, `#[must_use]` on `publish`/
   `subscribe`), `HardwareEvent` enum (`AudioDuckRequest`, `SensorContextChange`,
-  `RadioBurstDetected`, `CctvMotionDetected`).
+  `RadioBurstDetected`, `CctvMotionDetected`, `ZoneChanged`).
 - **`error`**: `MediamasterError` — single error type; `Other(String)` +
   `context()` for arbitrary error wrapping.
 
@@ -88,7 +88,7 @@ Async sensor polling with debouncing and context fusion.
 
 ## mediamaster-rf
 
-SDR I/Q pipeline: acquire → FFT → detect → decode.
+SDR I/Q pipeline: acquire → FFT → detect → OOK demod → parse.
 
 - **`IqSource`** (trait): `async fn acquire(&self, count: usize) -> Vec<Complex<f32>>`,
   plus `fn sample_rate_hz(&self) -> u32`.
