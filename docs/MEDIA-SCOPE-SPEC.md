@@ -137,33 +137,40 @@ pub struct MediaCapabilityBundleV1 {
 
 ---
 
-## 6. Phased Execution Plan (0.2.0 shipped → 0.3.0+ expansion)
+## 6. Phased Execution Plan (0.2.0 shipped → 0.3.0 expansion)
 
-> **Alignment (2026-11-01):** (1) stripping `tokio` from core + adding CapsMatrix
-> vocab are **bundled into one breaking `0.3.0`** release; (2) **`mediamaster-probe`
-> is the first build deliverable**; (3) keep `mediamaster-bridge` as-is and **skip
-> a separate `mediamaster` facade crate** (CapsMatrix vocabulary lives in `-core`);
-> (4) expansion renumbered to `0.3.0+` — baseline is now `0.2.0` (shipped 2026-11-01).
->
-> Build order ≠ phase numbering: **probe is coded first**; core purification ships
-> alongside it in the same `0.3.0` release.
+> **Alignment (2026-11-01, reconciled with execution spec):**
+> - Expansion renumbered to **`0.3.0`** (branch `feat/v0.3-zero-tokio-core-caps-matrix-and-hw-codecs`); baseline is `0.2.0` (shipped 2026-11-01).
+> - **Build order: probe first**, then core purification, then codec, then agent.
+> - **Audio jitter/ducking rework deferred** (out of this run — keep the `DuckingProfile` shipped in 0.2.0; revisit after 0.3.0).
+> - Keep `mediamaster-bridge` as-is; **skip a separate `mediamaster` facade** (CapsMatrix vocabulary lives in `-core`).
 
-### Phase 1: Purify `mediamaster-core` & Add `CapsMatrix` Vocabulary — *ships in 0.3.0*
-- Remove `tokio` from `mediamaster-core/Cargo.toml` (relocate `tokio::sync::broadcast` `EventBus` and `AsyncSensor` trait to `mediamaster-sensors` / `mediamaster-agent`).
-- Add `Codec`, `PixelFormat`, `CodecCaps`, `CapsMatrix`, `MediaCapabilityBundleV1`, `MaintenanceLease`, `RoomState::EmergencyOverride`, and `MediaError` + `Remedy` to `mediamaster-core`.
+### Phase 1: Pure-Rust Container & Bitstream Inspector (`mediamaster-probe`) — *first deliverable*
+- Create `crates/probe` (`mediamaster-probe`) using pure-Rust parsers (`mp4parse`, `symphonia-core`, EBML/MKV header reader) to inspect MP4, MKV, WebM, MP3, AAC, FLAC, and WAV files/streams without C FFI.
+- Return `MediaDescriptor` (codec, profile, level, width, height, 10-bit `P010` flag, fps, duration) — zero `ffmpeg` process spawns.
+- Replace `SignageMaster`'s MP4-only `probe.rs` stub with `mediamaster-probe`.
+- **Gate:** `cargo test -p mediamaster-probe --all-features`.
+
+### Phase 2: Purify `mediamaster-core` & Add `CapsMatrix` Vocabulary — *ships in 0.3.0*
+- Make `mediamaster-core` `#![no_std]` + `alloc`, remove `tokio`; gate `serde` behind `serde-sync = ["dep:serde"]`.
+- Object-safe `AsyncSensor` via `Pin<Box<dyn Future<Output = Result<SensorReading, MediamasterError>> + Send>>`; replace the tokio `EventBus` with a sync `EventPublisher` trait.
+- New `caps.rs` + `provisioning.rs`: `Codec`, `PixelFormat`, `CodecCaps`, `CapsMatrix`, `DegradationTier`, `MaintenanceLease`, `MediaCapabilityBundleV1`, `RoomState::EmergencyOverride`, `MediaError` + `Remedy`.
 - **Exit Gate:** `cargo tree -p mediamaster-core | grep tokio` returns empty; `cargo test -p mediamaster-core --all-features` passes.
 
-### Phase 2: Pure-Rust Container & Bitstream Inspector (`mediamaster-probe`) — *first build deliverable*
-- Create `crates/probe` (`mediamaster-probe`) using pure-Rust parsers (`mp4parse`, `symphonia-core`, EBML/MKV header reader) to inspect MP4, MKV, WebM, MP3, AAC, FLAC, and WAV files/streams without C FFI.
-- Replace `SignageMaster`'s MP4-only `probe.rs` stub with `mediamaster-probe`.
-- **`MediaProbe` trait + `MediaDescriptor` output shape** — [placeholder: exact fields + error mapping TBD during build].
+### Phase 3: Native `CapsMatrix`, `CodecSlotManager` & MF/NDK Isolation (`mediamaster-codec`) — *ships in 0.3.0*
+- `slot_budget.rs`: `CodecSlotManager` guarding hardware decoder/encoder permits against `max_hw_decoder_instances`; deterministic fallback across `DegradationTier` (`Tier1HwSurface` → `Tier2HwByteBuffer` → `Tier3SharedTextureMux` → `Tier4PosterFallback`).
+- `mf_actor.rs` (`#[cfg(windows)]`, `features = ["mf"]`): dedicated MF actor thread (`CoInitializeEx`); declare `_mf_guard: MfRuntimeGuard` as the **very last field** so COM interfaces drop before `MFShutdown()`.
+- `ndk_codec.rs` (`#[cfg(target_os = "android")]`, `features = ["mediacodec"]`): JVM via `ndk_context` (never define `JNI_OnLoad`), query `MediaCodecList` `maxSupportedInstances`, `SafeNativeWindow` RAII wrapper.
+- **Gate:** `cargo test -p mediamaster-codec --all-features`.
 
-### Phase 3: Native Hardware Codec Discovery & Engines (`mediamaster-codec`) — *0.4.0+*
-- Create `crates/codec` (`mediamaster-codec`) with OS-gated native backends:
-  - `#[cfg(windows)]` (`features = ["mf"]`): Enumerate hardware MFTs via `windows 0.62` (`Win32::Media::MediaFoundation`) and DXGI adapters; implement `MfDecoder` / `MfEncoder` (`IMFSinkWriter`).
-  - `#[cfg(target_os = "android")]` (`features = ["mediacodec"]`): Enumerate `AMediaCodecList` via `ndk 0.9`, capture hardware decoder instance limits, and implement `NdkDecoder`.
-- Implement `CodecSlotManager` to guard hardware decoder/encoder concurrency.
-
-### Phase 4: Autonomous Audio Paging, Ducking & Sensor Reconciliation (`mediamaster-agent`) — *0.4.0+*
+### Phase 4: Autonomous Reconciliation (`mediamaster-agent`) — *ships in 0.3.0*
 - Create `crates/agent` (`mediamaster-agent`) uniting `mediamaster-audio`, `mediamaster-sensors` (`FusionEngine`), and `mediamaster-rf`.
-- Implement the **Live Paging & Sensor Ducking Loop**: when `FusionEngine` emits `RoomState::EmergencyOverride` (added in Phase 1) or a Mobile companion opens a live paging stream, `mediamaster-agent` commands `mediamaster-audio::Mixer` to apply the configured `DuckingProfile` and emits an audit event.
+- Live Paging & Sensor Ducking Loop: on `RoomState::EmergencyOverride` (added in Phase 2) or a live paging stream, command `mediamaster-audio::Mixer` to apply `DuckingProfile` and emit an audit event.
+- **Gate:** `cargo test -p mediamaster-agent --all-features`.
+
+### Phase 5: Update `MEDIA-SCOPE-SPEC.md` in place & Final Verification
+- Update (not overwrite) this spec to the finalized `0.3.0` state.
+- Final workspace gate: `cargo check --workspace --all-targets`, `cargo test --workspace --all-features`, `cargo clippy --workspace --all-targets -- -D warnings`, `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps`.
+
+### Deferred (out of `0.3.0`)
+- **Audio anti-click jitter buffer + lock-free `AutomationCommand` IIR ducking** (`crates/audio/jitter.rs`, Hermite resampler, ducking rework) — revisit after `0.3.0` ships.
