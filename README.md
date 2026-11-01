@@ -3,6 +3,7 @@
 ![crates.io](https://img.shields.io/crates/v/mediamaster-audio)
 ![crates.io](https://img.shields.io/crates/v/mediamaster-rf)
 ![crates.io](https://img.shields.io/crates/v/mediamaster-sensors)
+![crates.io](https://img.shields.io/crates/v/mediamaster-bridge)
 
 # mediamaster-rs
 
@@ -44,12 +45,13 @@ mediamaster-rs/
 
 | Crate | Version |
 |-------|---------|
-| [mediamaster-core](https://crates.io/crates/mediamaster-core) | ![0.1.1](https://img.shields.io/crates/v/mediamaster-core) |
-| [mediamaster-audio](https://crates.io/crates/mediamaster-audio) | ![0.1.1](https://img.shields.io/crates/v/mediamaster-audio) |
-| [mediamaster-rf](https://crates.io/crates/mediamaster-rf) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-rf) |
-| [mediamaster-sensors](https://crates.io/crates/mediamaster-sensors) | ![0.1.1](https://img.shields.io/crates/v/mediamaster-sensors) |
+| [mediamaster-core](https://crates.io/crates/mediamaster-core) | ![0.2.0](https://img.shields.io/crates/v/mediamaster-core) |
+| [mediamaster-audio](https://crates.io/crates/mediamaster-audio) | ![0.2.0](https://img.shields.io/crates/v/mediamaster-audio) |
+| [mediamaster-rf](https://crates.io/crates/mediamaster-rf) | ![0.2.0](https://img.shields.io/crates/v/mediamaster-rf) |
+| [mediamaster-sensors](https://crates.io/crates/mediamaster-sensors) | ![0.2.0](https://img.shields.io/crates/v/mediamaster-sensors) |
+| [mediamaster-bridge](https://crates.io/crates/mediamaster-bridge) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-bridge) |
 
-The next release (0.2.0) is planned — see [`docs/RELEASE.md`](docs/RELEASE.md).
+The 0.2.0 release is live on crates.io — see [`docs/RELEASE.md`](docs/RELEASE.md).
 
 ## How an app uses these crates
 

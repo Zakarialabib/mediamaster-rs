@@ -1,15 +1,16 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.0] — 2026-11-01
 
-Work landed on `main` after the 0.1.x crates.io release (2026-10-27). Targets
-the coordinated **0.2.0** release — see [`docs/RELEASE.md`](docs/RELEASE.md).
+Coordinated workspace release (aligned versions across the published crates),
+plus the first publish of `mediamaster-bridge`. See [`docs/RELEASE.md`](docs/RELEASE.md).
 
 ### Added
-- **mediamaster-bridge** (new workspace crate, `publish = false`): app-integration
-  facade — `AudioBridge`, `SensorBridge`, `RfBridge`, plus `EventHandlers` that
-  routes `EventBus` events (duck requests → mixer, sensor/RF results → recorded
-  state) and exposes `run(bus)` to subscribe/dispatch until the bus is dropped.
+- **mediamaster-bridge** (new workspace crate, published at 0.1.0):
+  app-integration facade — `AudioBridge`, `SensorBridge`, `RfBridge`, plus
+  `EventHandlers` that routes `EventBus` events (duck requests → mixer,
+  sensor/RF results → recorded state) and exposes `run(bus)` to
+  subscribe/dispatch until the bus is dropped.
 - **mediamaster-rf**: `OokDemodulator` — OOK/ASK envelope demodulator (315/433 MHz
   ISM standard) recovering a byte stream from I/Q; three-stage `Pipeline`
   (acquisition → DSP → demod/parse) driven by the caller's tokio runtime.

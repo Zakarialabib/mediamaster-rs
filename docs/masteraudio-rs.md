@@ -117,7 +117,7 @@ A caller (a Tauri desktop player, an Android phone app, or anything else) does
 | **Phase 0** | `mediamaster-rs` crate suite built + verified (core/audio/rf/sensors/bridge) | ✅ done (70 tests) |
 | **Phase 0.5** | Cross-crate integration tests (workspace-level) | ✅ done |
 | **Phase 1** | Publish to crates.io (`core`, `audio`, `rf`, `sensors`) | ✅ done — live at 0.1.x (2026-10-27) |
-| **Phase 1.5** | Coordinated **0.2.0** release (bridge, EventHandlers, OOK demod, 3-stage pipeline, zones, ducking) | ⏸ planned — see [`RELEASE.md`](RELEASE.md) |
+| **Phase 1.5** | Coordinated **0.2.0** release (bridge, EventHandlers, OOK demod, 3-stage pipeline, zones, ducking) | ✅ done — published 2026-11-01 (core/audio/rf/sensors 0.2.0, bridge 0.1.0) |
 | **Phase 2** | Signage desktop app + phone app adapt the crates (external repos) | ⏸ pending |
 | **Phase 3** | `media-scope` extraction (follow-up, Phase 2 outcome) | ⏸ pending |
 
