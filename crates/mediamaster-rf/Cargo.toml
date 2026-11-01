@@ -4,14 +4,19 @@ version = "0.1.0"
 description = "SDR IQ pipeline, FFT detection, and protocol parsing for the mediamaster-rs ecosystem"
 authors = ["SignageMaster Team <team@signage-master.example.com>"]
 edition = "2021"
-rust-version = "1.94"
-license = "Apache-2.0"
-repository.workspace = true
+rust-version = "1.95"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Zakarialabib/mediamaster-rs"
 documentation = "https://docs.rs/mediamaster-rf"
 keywords = ["sdr", "rf", "dsp", "fft", "iq"]
 categories = ["science", "embedded"]
 
 [dependencies]
+# Runtime for the three-stage async pipeline (stage 1 acquisition,
+# stage 2 DSP, stage 3 protocol parsing + event emission).
+tokio = { version = "1", features = ["sync", "macros", "rt"] }
+
+# Shared types, traits, and the event bus.
 mediamaster-core = { path = "../mediamaster-core", version = "0.1.0" }
 
 # DSP (FFT + detection).
