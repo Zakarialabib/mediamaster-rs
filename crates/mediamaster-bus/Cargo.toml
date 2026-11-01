@@ -1,0 +1,20 @@
+[package]
+name = "mediamaster-bus"
+version = "0.3.0"
+description = "Concrete tokio event bus for the mediamaster-rs ecosystem (implements core's EventPublisher)"
+authors = ["SignageMaster Team <team@signage-master.example.com>"]
+edition = "2021"
+rust-version = "1.94"
+license = "Apache-2.0"
+repository.workspace = true
+documentation = "https://docs.rs/mediamaster-bus"
+keywords = ["events", "broadcast", "tokio", "mediamaster"]
+categories = ["asynchronous", "concurrency"]
+
+[dependencies]
+mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
+tokio = { workspace = true }
+
+[lib]
+name = "mediamaster_bus"
+path = "src/lib.rs"

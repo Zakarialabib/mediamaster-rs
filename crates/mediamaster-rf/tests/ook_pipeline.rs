@@ -4,7 +4,8 @@ use std::sync::{Arc, Mutex};
 
 use num_complex::Complex;
 
-use mediamaster_core::events::{EventBus, HardwareEvent};
+use mediamaster_bus::EventBus;
+use mediamaster_core::events::HardwareEvent;
 use mediamaster_rf::{IqSample, IqSource, OokDemodulator, Pipeline, PipelineConfig};
 
 /// A synthetic OOK source that emits a fixed byte stream once, then reports

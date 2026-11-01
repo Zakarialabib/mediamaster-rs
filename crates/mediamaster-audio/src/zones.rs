@@ -1,4 +1,5 @@
-use mediamaster_core::{EventBus, HardwareEvent};
+use mediamaster_bus::EventBus;
+use mediamaster_core::HardwareEvent;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -157,7 +158,7 @@ impl<'a> ZoneRouter for Zones<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mediamaster_core::EventBus;
+    use mediamaster_bus::EventBus;
 
     #[test]
     fn test_zone_crud_and_lookup() {

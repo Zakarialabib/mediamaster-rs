@@ -17,7 +17,8 @@ categories = ["science", "embedded"]
 tokio = { version = "1", features = ["sync", "macros", "rt"] }
 
 # Shared types, traits, and the event bus.
-mediamaster-core = { path = "../mediamaster-core", version = "0.2.0" }
+mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
+mediamaster-bus = { path = "../mediamaster-bus", version = "0.3.0" }
 
 # DSP (FFT + detection).
 rustfft = "6.1"

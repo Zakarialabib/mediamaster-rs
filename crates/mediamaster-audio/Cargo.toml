@@ -12,7 +12,8 @@ keywords = ["audio", "mixing", "ducking", "pcm", "cpal"]
 categories = ["multimedia::audio", "embedded"]
 
 [dependencies]
-mediamaster-core = { path = "../mediamaster-core", version = "0.2.0" }
+mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
+mediamaster-bus = { path = "../mediamaster-bus", version = "0.3.0" }
 ringbuf = { version = "0.3", features = ["alloc"] }
 serde = { workspace = true }
 

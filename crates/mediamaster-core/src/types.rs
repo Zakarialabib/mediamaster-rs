@@ -4,10 +4,15 @@
 //! downstream users write `mediamaster_core::RoomState`, not
 //! `mediamaster_core::types::RoomState`.
 
+use alloc::string::String;
+use alloc::vec::Vec;
+
+#[cfg(feature = "serde-sync")]
 use serde::{Deserialize, Serialize};
 
 /// An aggregate room state derived from fused sensor readings.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde-sync", derive(Serialize, Deserialize))]
 pub enum RoomState {
     /// No detection in the last poll window.
     Empty,
@@ -19,12 +24,15 @@ pub enum RoomState {
     MotionDetected,
     /// Occupancy + active human presence (light + motion together).
     PersonPresent,
+    /// A paging / emergency stream is overriding normal playback.
+    EmergencyOverride,
     /// Sensor subsystem is unreachable or in an error state.
     Unavailable,
 }
 
 /// A detected RF burst after protocol parsing.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-sync", derive(Serialize, Deserialize))]
 pub struct RadioBurst {
     pub id: String,
     pub frequency_hz: u32,
@@ -39,7 +47,8 @@ pub struct RadioBurst {
 ///
 /// Does **not** derive `Eq` because `f32` fields cannot satisfy the
 /// total-equality contract (NaN ≠ NaN).
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde-sync", derive(Serialize, Deserialize))]
 pub struct BoundingBox {
     pub x: f32,
     pub y: f32,
@@ -62,7 +71,8 @@ impl BoundingBox {
 
 /// A target for audio output on a playback device (from core, shared by audio
 /// routing and signage adapters).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde-sync", derive(Serialize, Deserialize))]
 pub struct AudioTarget {
     pub label: String,
     pub device: Option<String>,
@@ -70,7 +80,8 @@ pub struct AudioTarget {
 }
 
 /// One debounced sensor reading.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde-sync", derive(Serialize, Deserialize))]
 pub enum SensorReading {
     /// Motion detected (PIR, mmWave, camera-based).
     MotionDetected,
@@ -105,7 +116,8 @@ impl SensorReading {
 }
 
 /// A detected RF signal — whatever a user's `SignalDetector` decides it is.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-sync", derive(Serialize, Deserialize))]
 pub struct Signal {
     /// Human-readable identifier (e.g. bin index, protocol name).
     pub id: String,
@@ -160,5 +172,11 @@ mod tests {
         ];
         let priorities: Vec<u8> = readings.iter().map(|r| r.priority()).collect();
         assert_eq!(priorities, vec![0, 1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn room_state_has_emergency_override() {
+        // Phase 1 adds EmergencyOverride for the agent's paging/ducking loop.
+        assert_ne!(RoomState::EmergencyOverride, RoomState::Empty);
     }
 }

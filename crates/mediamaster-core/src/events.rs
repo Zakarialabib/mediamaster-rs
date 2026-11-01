@@ -1,11 +1,16 @@
-//! Event bus + hardware event types.
+//! Hardware event vocabulary + the runtime-agnostic event sink trait.
+
+use alloc::string::String;
+use alloc::vec::Vec;
+
+#[cfg(feature = "serde-sync")]
+use serde::{Deserialize, Serialize};
 
 use crate::types::{BoundingBox, RadioBurst, RoomState};
-use serde::{Deserialize, Serialize};
-use tokio::sync::broadcast;
 
 /// Every event the ecosystem publishes and consumers subscribe to.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-sync", derive(Serialize, Deserialize))]
 pub enum HardwareEvent {
     /// High-priority event requested a volume duck on a named audio source.
     AudioDuckRequest {
@@ -42,94 +47,12 @@ impl HardwareEvent {
     }
 }
 
-/// A broadcast-style event bus. All crates publish to it; adapters subscribe.
+/// Synchronous, runtime-agnostic event sink injected by the host runtime
+/// (`mediamaster-bus`, `mediamaster-agent`, or an application loop).
 ///
-/// Internally wraps `tokio::sync::broadcast`. Subscribers receive a
-/// `broadcast::Receiver` that can be polled with `recv()` (async) or
-/// `try_recv()` (sync). If the channel buffer fills while no subscriber is
-/// reading, `publish` returns `false` (event was dropped).
-pub struct EventBus {
-    sender: broadcast::Sender<HardwareEvent>,
-    capacity: usize,
-}
-
-impl EventBus {
-    /// Create a new bus with the given subscriber capacity.
-    pub fn new(capacity: usize) -> Self {
-        let (sender, _) = broadcast::channel(capacity);
-        Self { sender, capacity }
-    }
-
-    /// Subscribe to the event stream.
-    #[must_use]
-    pub fn subscribe(&self) -> broadcast::Receiver<HardwareEvent> {
-        self.sender.subscribe()
-    }
-
-    /// Publish an event to all current subscribers.
-    ///
-    /// Returns `false` if there are no subscribers or the channel is full.
-    #[must_use]
-    pub fn publish(&self, event: HardwareEvent) -> bool {
-        self.sender.send(event).is_ok()
-    }
-
-    /// Number of live subscribers.
-    pub fn len(&self) -> usize {
-        self.sender.receiver_count()
-    }
-
-    /// Returns `true` when there are no live subscribers.
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    /// The capacity of each subscriber's lag buffer.
-    pub fn capacity(&self) -> usize {
-        self.capacity
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn no_subscribers_initially() {
-        let bus = EventBus::new(16);
-        assert!(bus.is_empty());
-        assert_eq!(bus.len(), 0);
-        assert_eq!(bus.capacity(), 16);
-    }
-
-    #[test]
-    fn publish_and_subscribe() {
-        let bus = EventBus::new(16);
-        let mut rx = bus.subscribe();
-        assert_eq!(bus.len(), 1);
-        assert!(!bus.is_empty());
-
-        let event = HardwareEvent::AudioDuckRequest {
-            source: "test".into(),
-            ducking: 0.5,
-            until: 100,
-        };
-        assert!(bus.publish(event.clone()));
-
-        let received = rx.try_recv().unwrap();
-        assert_eq!(received, event);
-        assert_eq!(received.event_name(), "AudioDuckRequest");
-    }
-
-    #[test]
-    fn publish_to_no_subscribers_returns_false() {
-        // With no live subscribers, publish returns false.
-        let bus = EventBus::new(1);
-        let published = bus.publish(HardwareEvent::AudioDuckRequest {
-            source: "noop".into(),
-            ducking: 0.0,
-            until: 0,
-        });
-        assert!(!published);
-    }
+/// `mediamaster-core` never owns a concrete channel: the host supplies any
+/// implementation (tokio broadcast, crossbeam, a ring buffer, a test double).
+pub trait EventPublisher: Send + Sync {
+    /// Publishes a hardware or pipeline state transition event.
+    fn publish(&self, event: HardwareEvent);
 }

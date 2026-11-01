@@ -54,7 +54,7 @@ fn audio_mixer_sums_sources_and_applies_ducking() {
 
 #[test]
 fn event_bus_publishes_and_subscribers_receive() {
-    let bus = mediamaster_core::EventBus::new(16);
+    let bus = mediamaster_bus::EventBus::new(16);
     let mut rx = bus.subscribe();
     assert!(
         bus.publish(mediamaster_core::HardwareEvent::SensorContextChange {

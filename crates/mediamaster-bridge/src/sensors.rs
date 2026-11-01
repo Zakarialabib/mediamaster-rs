@@ -4,8 +4,12 @@
 //! `mediamaster-sensors` domain crate, and provides device enumerators for
 //! internal and external sensor hardware.
 
+use std::future::Future;
+use std::pin::Pin;
+
 use mediamaster_core::traits::AsyncSensor;
 use mediamaster_core::types::SensorReading;
+use mediamaster_core::MediamasterError;
 use mediamaster_sensors::fusion::FusionEngine;
 
 /// Bridge from `mediamaster-core::AsyncSensor` → `mediamaster-sensors`.
@@ -63,9 +67,13 @@ impl Default for SensorBridge {
 }
 
 impl AsyncSensor for SensorBridge {
-    async fn read(&self) -> SensorReading {
-        // Placeholder: read from a sensor, then update fusion.
-        SensorReading::Unknown
+    fn read_sample<'a>(
+        &'a mut self,
+    ) -> Pin<Box<dyn Future<Output = Result<SensorReading, MediamasterError>> + Send + 'a>> {
+        Box::pin(async move {
+            // Placeholder: read from a sensor, then update fusion.
+            Ok(SensorReading::Unknown)
+        })
     }
 }
 
