@@ -4,7 +4,9 @@
 //! blocking the async runtime.
 
 use std::cell::UnsafeCell;
+use std::time::Instant;
 
+use crate::ducking::DuckingProfile;
 use mediamaster_core::traits::AudioSource;
 use ringbuf::HeapRb;
 use ringbuf::Rb;
@@ -13,10 +15,20 @@ use ringbuf::Rb;
 const OUTPUT_CAPACITY: usize = 8192;
 
 /// A mixer that reads from several sources, applies a global ducking
-/// multiplier, and writes mixed PCM to an output ring buffer.
+/// multiplier (optionally a smooth `DuckingProfile`), and writes mixed PCM to an
+/// output ring buffer.
 pub struct Mixer {
     sources: Vec<Box<dyn AudioSource>>,
+    /// Static global ducking gain (the fallback once a profile expires).
     ducking: f32,
+    /// Active time-varying ducking profile, if any. While its `duration_ms`
+    /// has not elapsed, `ducking()` returns `profile.level(elapsed)`; after it
+    /// expires, `ducking()` falls back to `ducking`.
+    ducking_profile: Option<DuckingProfile>,
+    /// `Instant` the current profile was scheduled (monotonic). `std::time`
+    /// only — `Mixer` stays free of tokio/the `EventBus`: the app owns the
+    /// `EventBus` subscription and feeds profiles built from events.
+    profile_started: Option<Instant>,
     /// `UnsafeCell` is the only legal way to obtain `&mut` from `&self`,
     /// which the `cpal` callback (via `LockRead`) needs. In the non-cpal
     /// path, `mix(&mut self)` already has exclusive access.
@@ -24,9 +36,10 @@ pub struct Mixer {
 }
 
 // SAFETY: `HeapRb` (`SharedRb`) uses atomic head/tail pointers internally,
-// making it safe for SPSC access from two threads. The `sources` and `ducking`
-// fields are only mutated through `&mut self` methods, so concurrent access
-// via `&self` (the `LockRead` impl) is safe for the ring buffer alone.
+// making it safe for SPSC access from two threads. The `sources`, `ducking`
+// and ducking-profile fields are only mutated through `&mut self` methods, so
+// concurrent access via `&self` (the `LockRead` impl) is safe for the ring
+// buffer alone.
 #[cfg(feature = "audio-cpal")]
 unsafe impl Sync for Mixer {}
 
@@ -35,6 +48,8 @@ impl Mixer {
         Self {
             sources: Vec::new(),
             ducking: 1.0,
+            ducking_profile: None,
+            profile_started: None,
             output: UnsafeCell::new(HeapRb::new(OUTPUT_CAPACITY)),
         }
     }
@@ -44,12 +59,37 @@ impl Mixer {
     }
 
     /// Global ducking multiplier from 0.0 (fully muted) to 1.0 (full volume).
+    ///
+    /// If a `DuckingProfile` was scheduled via `set_ducking_profile` and its
+    /// `duration_ms` has not elapsed, returns the profile's interpolated
+    /// level; otherwise returns the static `ducking` gain.
     pub fn ducking(&self) -> f32 {
+        if let (Some(profile), Some(start)) = (&self.ducking_profile, &self.profile_started) {
+            let elapsed = start.elapsed().as_millis() as u64;
+            if elapsed < profile.duration_ms {
+                return profile.level(elapsed).clamp(0.0, 1.0);
+            }
+            // elapsed >= duration: profile expired, fall through to static gain.
+        }
         self.ducking.clamp(0.0, 1.0)
     }
 
     pub fn set_ducking(&mut self, ducking: f32) {
         self.ducking = ducking.clamp(0.0, 1.0);
+    }
+
+    /// Schedule a smooth ducking transition. The mixer records the call time
+    /// via `std::time::Instant`; `ducking()` then returns `profile.level(t)`
+    /// (where `t` is elapsed milliseconds) until the profile's `duration_ms`
+    /// elapses, after which it reverts to the static gain.
+    ///
+    /// `Mixer` stays free of tokio/the `EventBus`: the **app** subscribes the
+    /// `EventBus`, builds the profile and calls this. From
+    /// `HardwareEvent::AudioDuckRequest { ducking, until }`, use
+    /// `duration_ms = until - now` (monotonic) and `target = ducking`.
+    pub fn set_ducking_profile(&mut self, profile: DuckingProfile) {
+        self.ducking_profile = Some(profile);
+        self.profile_started = Some(Instant::now());
     }
 
     /// Collect one batch (512 frames) from each source.
@@ -66,8 +106,9 @@ impl Mixer {
     }
 
     /// Push one mixed batch into the output ring (SPSC producer, `&self`).
-    /// Ducking is applied per-sample. Does NOT drain — leaves samples for the
-    /// consumer (`mix` or the `LockRead` cpal callback) to pop.
+    /// Ducking — static or the active profile's interpolated level — is
+    /// applied per-sample. Does NOT drain — leaves samples for the consumer
+    /// (`mix` or the `LockRead` cpal callback) to pop.
     fn push_mixed(&self, frames: &[Vec<f32>]) {
         let ducking = self.ducking();
         // SAFETY: SPSC — the only writer here; the reader pops via `LockRead`.
@@ -185,6 +226,29 @@ mod tests {
         assert_eq!(mixer.ducking(), 1.0);
         mixer.set_ducking(-3.0);
         assert_eq!(mixer.ducking(), 0.0);
+    }
+
+    #[test]
+    fn set_ducking_profile_eases_gain() {
+        let mut mixer = Mixer::new();
+        assert_eq!(mixer.ducking(), 1.0); // static gain, no profile
+
+        // Linear ramp 1.0 -> 0.0 over 100 ms (level(0)=1.0, level(50)=0.5,
+        // level>=100 -> 0.0).
+        mixer.set_ducking_profile(DuckingProfile {
+            curve: crate::ducking::DuckingCurve::Linear,
+            duration_ms: 100,
+            target: 0.0,
+        });
+
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        let mid = mixer.ducking();
+        assert!(mid < 1.0 && mid > 0.0, "mid-ramp ducking was {mid}");
+
+        // After the duration elapses, the profile expires and `ducking()`
+        // reverts to the static gain (1.0).
+        std::thread::sleep(std::time::Duration::from_millis(60));
+        assert_eq!(mixer.ducking(), 1.0);
     }
 
     #[test]
