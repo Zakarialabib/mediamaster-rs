@@ -88,7 +88,8 @@ A caller (a Tauri desktop player, an Android phone app, or anything else) does
    - `mediamaster-sensors::FusionEngine` aggregates `AsyncSensor` readings.
    - `mediamaster-bridge` facades (`AudioBridge`, `SensorBridge`, `RfBridge`)
      expose the domains to the app; `mediamaster-rf::Pipeline` runs the
-     three-stage IQ pipeline. The app owns the `EventBus` subscription loop.
+     three-stage IQ pipeline. `EventHandlers::run(bus)` subscribes to the
+     `EventBus` and routes events to the bridges.
 4. The `mediamaster-core::EventBus` carries the resulting `HardwareEvent`s
    (e.g. `AudioDuckRequest`, `SensorContextChange`, `RadioBurstDetected`) between
    the domains.
@@ -111,7 +112,7 @@ A caller (a Tauri desktop player, an Android phone app, or anything else) does
 
 | Phase | Work | Status |
 |-------|------|--------|
-| **Phase 0** | `mediamaster-rs` crate suite built + verified (core/audio/rf/sensors/bridge) | ✅ done (59 tests) |
+| **Phase 0** | `mediamaster-rs` crate suite built + verified (core/audio/rf/sensors/bridge) | ✅ done (70 tests) |
 | **Phase 0.5** | Cross-crate integration tests (workspace-level) | ✅ done |
 | **Phase 1** | Publish to crates.io (`core`, `audio`, `rf`, `sensors`, `bridge`) | ⏸ **held** — `publish = false` on every crate; release after control plane + RF/SDR expansion is verified |
 | **Phase 2** | Signage desktop app + phone app adapt the crates (external repos) | ⏸ pending |
@@ -130,14 +131,15 @@ A caller (a Tauri desktop player, an Android phone app, or anything else) does
 |-------|---------|--------|
 | core | `EventBus`, `HardwareEvent`, traits, `MediamasterError` | done |
 | audio | `Mixer` (+ducking profile), `MediaSourceAdapter`, `Zones`, `Sink` | done |
-| rf | `MagnitudeDetector`, `IqSource`, `ProtocolParser`, `Pipeline` (3-stage) | ✅ done |
+| rf | `MagnitudeDetector`, `OokDemodulator`, `IqSource`, `ProtocolParser`, `Pipeline` (3-stage) | ✅ done |
 | sensors | `DebouncedSensor`, `FusionEngine`, `SensorAggregator` | ✅ done |
-| bridge | `AudioBridge`, `SensorBridge`, `RfBridge`, `EventHandlers`, device enums | ✅ done (6 unit tests + 3 doctests) |
+| bridge | `AudioBridge`, `SensorBridge`, `RfBridge`, `EventHandlers`, device enums | ✅ done (11 unit tests + 3 doctests) |
 
 > **State (2026-11-01):** the workspace builds clean — `cargo fmt --check`,
 > `cargo clippy --workspace --all-features --all-targets -- -D warnings`, and
-> `cargo test --workspace --all-features` (59 tests, 17 suites) all pass. The
-> `mediamaster-rf::Pipeline` (3-stage: acquisition → DSP → parse) and the bridge
-> facades are in place. Next: (a) decide when to lift `publish = false` and cut
-> a crates.io release, (b) the apps (external repos) that implement the
-> `mediamaster-core` traits and drive the bridges.
+> `cargo test --workspace --all-features` (70 tests, 18 suites) all pass. The
+> `mediamaster-rf::Pipeline` (3-stage: acquisition → DSP → OOK demod → parse)
+> recovers real payloads end-to-end, `EventHandlers` routes the `EventBus` to
+> the bridges, and the bridge facades are in place. Next: (a) decide when to
+> lift `publish = false` and cut a crates.io release, (b) the apps (external
+> repos) that implement the `mediamaster-core` traits and drive the bridges.

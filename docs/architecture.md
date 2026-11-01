@@ -24,8 +24,9 @@ capabilities that share the `core` vocabulary.
 > `simple-signage` was removed in 2026-10 (the apps are external
 > repositories). `mediamaster-bridge` is the app-integration seam: it re-exports
 > the domains behind one facade (`AudioBridge`, `SensorBridge`, `RfBridge`,
-> `EventHandlers`). The `EventBus` subscription loop is owned by the
-> application, not the crates.
+> `EventHandlers`). `EventHandlers` provides the `EventBus` subscription loop
+> (`run`) that routes events to the bridges, or apps can drive `handle_event`
+> themselves.
 
 ## `mediamaster-core`
 
@@ -93,13 +94,16 @@ SDR I/Q pipeline: acquire → FFT → detect → decode.
   plus `fn sample_rate_hz(&self) -> u32`.
 - **`MagnitudeDetector`**: FFT forward transform + magnitude threshold.
   `new(size, threshold)`, `peaks(&[Complex<f32>])`, `detect(...)`.
+- **`OokDemodulator`**: OOK/ASK envelope demodulator (the 315/433 MHz ISM-band
+  standard) — averages the sample envelope over `samples_per_symbol` and slices
+  against `threshold` to recover a byte stream (MSB-first).
 - **`ProtocolParser`** (trait): `parse_sync` recognizes sync words (`\xaa\xbb`)
-  and extracts `Header` (kind, sync_word, payload_len).
-- **`Pipeline`** — three-stage async pipeline (acquisition → DSP → parse) over an
-  `IqSource` + `EventBus`, driven by the caller's runtime. Config: `PipelineConfig`
-  (`batch_size`, `fft_size`, `threshold`, `buffer_size`, `center_frequency_hz`).
-- **`samples_to_bytes`** — placeholder byte extraction: payload bytes are carried
-  in the real part of the I/Q samples (one byte per sample = 0–255).
+  and extracts `Header` (kind, sync_word, payload_len). The default `()`
+  parser reports the bytes after the sync word as the payload.
+- **`Pipeline`** — three-stage async pipeline (acquisition → DSP → demod/parse)
+  over an `IqSource` + `EventBus`, driven by the caller's runtime. Config:
+  `PipelineConfig` (`batch_size`, `fft_size`, `threshold`, `buffer_size`,
+  `center_frequency_hz`).
 
 ## mediamaster-bridge
 
@@ -109,10 +113,12 @@ Unified facade over the domains for the external apps.
   `&self`), ducking-profile passthrough, device enumerators.
 - **`SensorBridge`** — `AsyncSensor` over `FusionEngine` + device enumerators.
 - **`RfBridge`** — `SignalDetector` over `MagnitudeDetector` + device enumerators.
-- **`EventHandlers`** — placeholder handle for `EventBus` subscription; apps
-  wire their own `EventBus` loop and route `AudioDuckRequest` /
-  `SensorContextChange` / `RadioBurstDetected` to the bridges themselves
-  (`subscribe_to_bus()` is currently a no-op stub).
+- **`EventHandlers`** — routes `EventBus` events to the domains: builds a
+  `DuckingProfile` from `AudioDuckRequest` and applies it to the `AudioBridge`
+  mixer, records the latest `RoomState` (`SensorContextChange`) and `RadioBurst`
+  (`RadioBurstDetected`) for the app to poll; `run(bus)` subscribes and
+  dispatches until the bus is dropped (`ZoneChanged`/`CctvMotionDetected` are
+  no-ops — no zone/CCTV bridge here).
 
 ## mediamaster-integration-tests (workspace-only)
 
@@ -123,7 +129,7 @@ Cross-crate integration tests that exercise the shared trait vocabulary
 |------|---------|-|
 | Build | `cargo check --workspace` |
 | Lint | `cargo clippy --workspace --all-targets -- -D warnings` |
-| Test | `cargo test --workspace` (59 tests) |
+| Test | `cargo test --workspace` (70 tests) |
 | Format | `cargo fmt` |
 | Toolchain | 1.95 (per `rust-toolchain.toml`, with `rustfmt` + `clippy`) |
 | CI | `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` (on `stable`) |
