@@ -1,6 +1,6 @@
 [package]
 name = "mediamaster-sensors"
-version = "0.1.1"
+version = "0.2.0"
 description = "Async sensor polling, debouncing, and context fusion for the mediamaster-rs ecosystem"
 authors = ["SignageMaster Team <team@signage-master.example.com>"]
 edition = "2021"
@@ -13,7 +13,7 @@ categories = ["embedded", "hardware-support"]
 
 
 [dependencies]
-mediamaster-core = { path = "../mediamaster-core", version = "0.1.0" }
+mediamaster-core = { path = "../mediamaster-core", version = "0.2.0" }
 tokio = { workspace = true }
 
 # Standard async HAL for real hardware (optional — no_std capable).

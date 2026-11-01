@@ -1,6 +1,6 @@
 [package]
 name = "mediamaster-audio"
-version = "0.1.1"
+version = "0.2.0"
 description = "Lock-free PCM mixing, ducking, and routing for the mediamaster-rs ecosystem"
 authors = ["SignageMaster Team <team@signage-master.example.com>"]
 edition = "2021"
@@ -12,7 +12,7 @@ keywords = ["audio", "mixing", "ducking", "pcm", "cpal"]
 categories = ["multimedia::audio", "embedded"]
 
 [dependencies]
-mediamaster-core = { path = "../mediamaster-core", version = "0.1.0" }
+mediamaster-core = { path = "../mediamaster-core", version = "0.2.0" }
 ringbuf = { version = "0.3", features = ["alloc"] }
 serde = { workspace = true }
 
