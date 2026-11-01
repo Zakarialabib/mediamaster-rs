@@ -3,23 +3,29 @@
 ## Overview
 
 `mediamaster-rs` provides a shared vocabulary for hardware media systems — a
-foundation that sits *alongside* `tv-rs` (broadcast TV) and `cctv-rs` (security
-cameras). The signage frontends consume these crates by implementing their
-traits; no domain is integrated into the signage app directly.
+foundation that sits *alongside* `tv-rs` (broadcast TV) and `cctv-rs`
+(security cameras). The signage frontends consume these crates by implementing
+their traits; no domain is integrated into the signage app directly.
 
 ## Crate dependency graph
 
-```
-core ← audio
-core ← rf    ← (nom, rustfft, num-complex 0.4)
-core ← sensors ← (embedded-hal-async)
-simple-signage → core + audio  (publish = false)
-integration-tests → core + audio + rf + sensors  (publish = false)
+```text
+mediamaster-core          <- every other crate
+   ↑
+   |  mediamaster-audio · mediamaster-rf · mediamaster-sensors · mediamaster-bridge
+   |
+mediamaster-integration-tests   (test-only, depends on core/rf/sensors/audio)
 ```
 
-`mediamaster-core` is the root: every other crate depends on it. There are **no
-cross-dependencies** between `audio`, `rf`, and `sensors` — they are
-orthogonal domains that happen to share the `core` vocabulary.
+`mediamaster-core` is the root: every other crate depends on it. There are
+**no cross-dependencies** between the domains — they are orthogonal
+capabilities that share the `core` vocabulary.
+
+> `simple-signage` was removed in 2026-10 (the apps are external
+> repositories). `mediamaster-bridge` is the app-integration seam: it re-exports
+> the domains behind one facade (`AudioBridge`, `SensorBridge`, `RfBridge`,
+> `EventHandlers`). The `EventBus` subscription loop is owned by the
+> application, not the crates.
 
 ## `mediamaster-core`
 
@@ -27,11 +33,13 @@ Shared types, traits, and the async event bus.
 
 - **`traits`**: `AudioSource` (PCM frame producer), `AsyncSensor` (async sensor
   poll), `SignalDetector` (FFT peak detection). `Signal` and `SensorReading`
-  now live in `types` (re-exported from `traits` for backward compat).
-- **`types`**: `BoundingBox` (with `area()`), `RadioBurst`, `Signal` (serde),
-  `AudioTarget`, `RoomState`, `SensorReading` (serde + `priority()`).
-- **`events`**: `EventBus` (broadcast channel, `#[must_use]` on `publish`/`subscribe`),
-  `HardwareEvent` enum (`AudioDuckRequest`, `SensorContextChange`, `RadioBurstDetected`, `CctvMotionDetected`).
+  live in `types` (re-exported from `traits` for backward compat).
+- **`types`**: `BoundingBox` (with `area()`), `RadioBurst`,
+  `Signal` (serde), `AudioTarget`, `RoomState`, `SensorReading` (serde +
+  `priority()`).
+- **`events`**: `EventBus` (broadcast channel, `#[must_use]` on `publish`/
+  `subscribe`), `HardwareEvent` enum (`AudioDuckRequest`, `SensorContextChange`,
+  `RadioBurstDetected`, `CctvMotionDetected`).
 - **`error`**: `MediamasterError` — single error type; `Other(String)` +
   `context()` for arbitrary error wrapping.
 
@@ -41,59 +49,81 @@ Key decisions:
   `Deserialize`-compatible without `'de: 'static` constraints.
 - No `f32` field carries `Eq` (floats are not `Eq`).
 
-## `mediamaster-audio`
+## mediamaster-audio
 
 Lock-free PCM mixing with per-source ducking.
 
-- **`Source`**: `AudioSource::read_pcm(&self, &mut [f32]) -> usize` — fill a
-  caller-supplied buffer, return frame count.
-- **`Mixer`**: `add_source`, `mix(&mut self) -> Vec<f32>`, `set_ducking(f32)` —
-  summing all sources, applies ducking, and drains into a `ringbuf::HeapRb<f32>`.
-- **`Sink`** (cpal, feature-gated): `LockRead` trait + `AudioSink` struct
-  for the OS audio output thread.
-- **`DuckingProfile`**: linear / exponential / instant curves from 1.0 → target.
+- **`AudioSource`** (core trait, implemented here by `MediaSourceAdapter`):
+  `read_pcm(&self, &mut [f32]) -> usize` — fill a caller-supplied buffer,
+  return frame count. `MediaSourceAdapter` bridges another hardware domain
+  (e.g. `tv-rs`) into the mixer; currently a dummy that fills zeros.
+- **`Mixer`**: `add_source(Box<dyn AudioSource>)`, `mix(&mut self) -> Vec<f32>`,
+  `set_ducking(f32)`, `set_ducking_profile(DuckingProfile)` — sums all sources,
+  applies ducking, and drains into a `ringbuf::HeapRb<f32>`.
+- **`Sink`** (cpal, feature-gated `audio-cpal`): `LockRead` trait + `AudioSink`
+  struct (`start(...)` spawns the OS audio output thread).
+- **`DuckingProfile`** / **`DuckingCurve`**: a ducking profile (`curve`,
+  `duration_ms`, `target`) applied before writing to the output ring buffer;
+  `DuckingCurve` is `Instant` / `Exponential` / `Linear`.
+- **Zones** (`zones.rs`): `Zone` (`id`, `name`, `output_device_id`,
+  `volume_db`, `muted`, `sync_group`) + the `ZoneRouter` trait, implemented by
+  `Zones` — typed audio routing zones with sync-group volume/mute, publishing
+  `ZoneChanged` events over the `EventBus`.
 
-`new(4, 0.5)` creates a detector expecting 4-sample FFT windows with a 0.5
-magnitude threshold. `peaks(&[Complex<f32>])` runs the FFT and returns per-bin
-magnitudes. `detect(&[f32], &mut Vec<Signal>)` filters magnitudes above
-threshold and writes `Signal` results.
-
-## `mediamaster-sensors`
+## mediamaster-sensors
 
 Async sensor polling with debouncing and context fusion.
 
 - **`DebouncedSensor`**: emits a reading only after it has been stable for
   `window` duration. First call for a reading starts the timer; same reading
   with elapsed window emits; different reading resets the timer.
-- **`SensorAggregator`**: `HashMap<String, SensorReading>` — `update(id, reading)`
-  replaces the latest value per sensor.
+- **`SensorAggregator`**: `HashMap<String, SensorReading>` — `push(id, reading)`
+  replaces the latest value per sensor (`readings()`, `len()`, `is_empty()`).
 - **`FusionEngine`**: `current_state() -> RoomState` — priority-ordered checks
   (motion + low-light → `PersonPresent`; motion only → `Occupied`; proximity
-  <10 cm → `PersonPresent`; light <50 lux → `LowLight`; else `Empty`).
+  < 10 m → `PersonPresent`; light < 50 lux → `LowLight`; else `Empty`).
+- **`SensorBridge`** (`mediamaster-bridge`): wraps `FusionEngine` behind the
+  `AsyncSensor` core trait for the apps.
 
-## `mediamaster-rf`
+## mediamaster-rf
 
-SDR I/Q pipeline: acquire → detect → decode.
+SDR I/Q pipeline: acquire → FFT → detect → decode.
 
-- **`iq_source`**: `IqSource` trait — `fn read(&mut self) -> IqSample` (a
-  `Complex<f32>`). `read_async` default uses `tokio::task::spawn_blocking`.
-- **`detector`**: `MagnitudeDetector` — FFT forward transform + magnitude
-  threshold. Configurable size and threshold.
-- **`parser`**: `ProtocolParser` trait — `parse_sync` recognizes sync words
-  (`\xaa\xbb`) and extracts `Header` (kind, sync_word, payload_len).
-- **`pipeline`**: `AcquisitionStage` — wraps an `IqSource` + `SignalDetector`
-  into an async acquisition loop with graceful shutdown via `CancellationToken`.
+- **`IqSource`** (trait): `async fn acquire(&self, count: usize) -> Vec<Complex<f32>>`,
+  plus `fn sample_rate_hz(&self) -> u32`.
+- **`MagnitudeDetector`**: FFT forward transform + magnitude threshold.
+  `new(size, threshold)`, `peaks(&[Complex<f32>])`, `detect(...)`.
+- **`ProtocolParser`** (trait): `parse_sync` recognizes sync words (`\xaa\xbb`)
+  and extracts `Header` (kind, sync_word, payload_len).
+- **`Pipeline`** — three-stage async pipeline (acquisition → DSP → parse) over an
+  `IqSource` + `EventBus`, driven by the caller's runtime. Config: `PipelineConfig`
+  (`batch_size`, `fft_size`, `threshold`, `buffer_size`, `center_frequency_hz`).
+- **`samples_to_bytes`** — placeholder byte extraction: payload bytes are carried
+  in the real part of the I/Q samples (one byte per sample = 0–255).
 
-## `mediamaster-integration-tests` (workspace-only)
+## mediamaster-bridge
+
+Unified facade over the domains for the external apps.
+
+- **`AudioBridge`** — `AudioSource` + `Mixer` (Mutex-wrapped so `read_pcm` takes
+  `&self`), ducking-profile passthrough, device enumerators.
+- **`SensorBridge`** — `AsyncSensor` over `FusionEngine` + device enumerators.
+- **`RfBridge`** — `SignalDetector` over `MagnitudeDetector` + device enumerators.
+- **`EventHandlers`** — placeholder handle for `EventBus` subscription; apps
+  wire their own `EventBus` loop and route `AudioDuckRequest` /
+  `SensorContextChange` / `RadioBurstDetected` to the bridges themselves
+  (`subscribe_to_bus()` is currently a no-op stub).
+
+## mediamaster-integration-tests (workspace-only)
 
 Cross-crate integration tests that exercise the shared trait vocabulary
-(`mediamaster-core`) and the domain crates (`audio`, `rf`, `sensors`).
+(`mediamaster-core`) and the domain crates (`audio`, `rf`, `sensors`, `bridge`).
 
-| Tool | Command |
-|------|---------|
+|| Tool | Command |
+|------|---------|-|
 | Build | `cargo check --workspace` |
 | Lint | `cargo clippy --workspace --all-targets -- -D warnings` |
-| Test | `cargo test --workspace` (50+ tests) |
+| Test | `cargo test --workspace` (59 tests) |
 | Format | `cargo fmt` |
-| MSRV | Rust 1.95 (per `rust-toolchain.toml`) |
-| CI | `cargo clippy --workspace --all-features --all-targets -- -D warnings` |
+| Toolchain | 1.95 (per `rust-toolchain.toml`, with `rustfmt` + `clippy`) |
+| CI | `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` (on `stable`) |

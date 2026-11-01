@@ -32,13 +32,19 @@ functional.
 | Crate | Purpose | Key dependencies |
 |-------|---------|------------------|
 | `mediamaster-core` | Shared event bus, traits, types | `tokio`, `serde`, `thiserror` |
-| `mediamaster-audio` | Lock-free PCM mixing, ducking, routing | `mediamaster-core`, `cpal`, `ringbuf` |
+| `mediamaster-audio` | Lock-free PCM mixing, ducking, routing | `mediamaster-core`, `ringbuf`; optional `cpal` (feature `audio-cpal`) |
 | `mediamaster-rf` | SDR IQ pipeline, FFT detection, protocol parsing | `mediamaster-core`, `rustfft`, `nom`, `num-complex` |
-| `mediamaster-sensors` | Async sensor polling, debouncing, context fusion | `mediamaster-core`, `embedded-hal-async`, `tokio` |
+| `mediamaster-sensors` | Async sensor polling, debouncing, context fusion | `mediamaster-core`, `tokio`; optional `embedded-hal-async` (feature `hw`) |
+| `mediamaster-bridge` | Unified facade for external apps (`EventBus` wiring is app-owned) | `mediamaster-core`, `mediamaster-audio`, `mediamaster-rf`, `mediamaster-sensors` |
 
 ### Alternative (independent functional names)
 
 If a prefix is not wanted: `hw-events` (event bus), `pcm-mixer` (audio), `sdr-pipeline` (SDR DSP), `sensor-hub` (sensor fusion). We use `mediamaster-*` for ecosystem cohesion.
+
+`mediamaster-bridge` is a **new crate** (v0.1.0, `publish = false`) added in
+2026-10. It holds the app-integration seam: `AudioBridge`, `SensorBridge`,
+`RfBridge`, `EventHandlers`. (The three-stage RF `Pipeline` and `PipelineConfig`
+live in `mediamaster-rf`, not here.)
 
 ---
 
@@ -54,11 +60,15 @@ mediamaster-rs/
     ├── mediamaster-core/               # THE FOUNDATION (traits + types + event bus)
     ├── mediamaster-audio/              # Lock-free PCM mixing + ducking
     ├── mediamaster-rf/                 # IQ acquisition → FFT → protocol parse
-    └── mediamaster-sensors/            # Sensor polling + debouncing + fusion
+    ├── mediamaster-sensors/            # Sensor polling + debouncing + fusion
+    ├── mediamaster-bridge/             # app-integration facade (2026-10)
+    └── mediamaster-integration-tests/  # cross-crate integration tests
 ```
 
 Each crate is independently publishable to crates.io. The workspace root only
 defines `workspace.package` + `workspace.dependencies` and re-exports nothing.
+`publish = false` is set on every crate today — releases are **held** until
+Phase 1 work is complete (see §6).
 
 ---
 
@@ -76,10 +86,12 @@ A caller (a Tauri desktop player, an Android phone app, or anything else) does
 3. Composes the domain crates:
    - `mediamaster-audio::Mixer` sums `AudioSource` frames + applies ducking.
    - `mediamaster-sensors::FusionEngine` aggregates `AsyncSensor` readings.
-   - `mediamaster-rf::Pipeline` (or a custom loop) emits `RadioBurstDetected`.
+   - `mediamaster-bridge` facades (`AudioBridge`, `SensorBridge`, `RfBridge`)
+     expose the domains to the app; `mediamaster-rf::Pipeline` runs the
+     three-stage IQ pipeline. The app owns the `EventBus` subscription loop.
 4. The `mediamaster-core::EventBus` carries the resulting `HardwareEvent`s
-   (e.g. `AudioDuckRequest`, `SensorContextChange`, `RadioBurstDetected`)
-   between the domains.
+   (e.g. `AudioDuckRequest`, `SensorContextChange`, `RadioBurstDetected`) between
+   the domains.
 
 > The workspace **contains no** signage app, no launcher, no device driver:
 > those live in the caller's own repository.
@@ -97,8 +109,35 @@ A caller (a Tauri desktop player, an Android phone app, or anything else) does
 
 ## 6. Backlog
 
-- [x] Phase 0 — `mediamaster-rs` crate suite built + verified (core/audio/rf/sensors).
-- [x] Phase 0.5 — cross-crate integration tests (workspace-level).
-- [x] Phase 1 — publish to crates.io (`core`, `audio`, `rf`, `sensors`).
-- [ ] Phase 2 — sign-age desktop app + phone app adapt the crates (external repos).
-- [ ] Phase 3 — `media-scope` extraction (follow-up).
+| Phase | Work | Status |
+|-------|------|--------|
+| **Phase 0** | `mediamaster-rs` crate suite built + verified (core/audio/rf/sensors/bridge) | ✅ done (59 tests) |
+| **Phase 0.5** | Cross-crate integration tests (workspace-level) | ✅ done |
+| **Phase 1** | Publish to crates.io (`core`, `audio`, `rf`, `sensors`, `bridge`) | ⏸ **held** — `publish = false` on every crate; release after control plane + RF/SDR expansion is verified |
+| **Phase 2** | Signage desktop app + phone app adapt the crates (external repos) | ⏸ pending |
+| **Phase 3** | `media-scope` extraction (follow-up, Phase 2 outcome) | ⏸ pending |
+
+> Release gate: `cargo fmt --check`, `cargo clippy --workspace
+> --all-targets -- -D warnings`, `cargo test --workspace --all-features` all
+> green, then one release commit per crate + tag, then `cargo publish` per
+> crate (verify with `--dry-run` first).
+
+---
+
+## 7. Current code status (2026-11-01)
+
+| Crate | Key API | Status |
+|-------|---------|--------|
+| core | `EventBus`, `HardwareEvent`, traits, `MediamasterError` | done |
+| audio | `Mixer` (+ducking profile), `MediaSourceAdapter`, `Zones`, `Sink` | done |
+| rf | `MagnitudeDetector`, `IqSource`, `ProtocolParser`, `Pipeline` (3-stage) | ✅ done |
+| sensors | `DebouncedSensor`, `FusionEngine`, `SensorAggregator` | ✅ done |
+| bridge | `AudioBridge`, `SensorBridge`, `RfBridge`, `EventHandlers`, device enums | ✅ done (6 unit tests + 3 doctests) |
+
+> **State (2026-11-01):** the workspace builds clean — `cargo fmt --check`,
+> `cargo clippy --workspace --all-features --all-targets -- -D warnings`, and
+> `cargo test --workspace --all-features` (59 tests, 17 suites) all pass. The
+> `mediamaster-rf::Pipeline` (3-stage: acquisition → DSP → parse) and the bridge
+> facades are in place. Next: (a) decide when to lift `publish = false` and cut
+> a crates.io release, (b) the apps (external repos) that implement the
+> `mediamaster-core` traits and drive the bridges.
