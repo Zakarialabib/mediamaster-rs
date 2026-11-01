@@ -6,7 +6,7 @@
 use std::cell::UnsafeCell;
 use std::time::Instant;
 
-use crate::ducking::DuckingProfile;
+use crate::ducking::{AutomationCommand, DuckingProfile, IirSmoothing};
 use mediamaster_core::traits::AudioSource;
 use ringbuf::HeapRb;
 use ringbuf::Rb;
@@ -29,6 +29,11 @@ pub struct Mixer {
     /// only — `Mixer` stays free of tokio/the `EventBus`: the app owns the
     /// `EventBus` subscription and feeds profiles built from events.
     profile_started: Option<Instant>,
+    /// Branchless per-sample IIR gain automation, driven by
+    /// [`push_automation`](Mixer::push_automation). Lives in an `UnsafeCell`
+    /// (like `output`) so the single producer can step it from `&self` in the
+    /// real-time path with no mutex and no heap.
+    iir: UnsafeCell<IirSmoothing>,
     /// `UnsafeCell` is the only legal way to obtain `&mut` from `&self`,
     /// which the `cpal` callback (via `LockRead`) needs. In the non-cpal
     /// path, `mix(&mut self)` already has exclusive access.
@@ -36,10 +41,12 @@ pub struct Mixer {
 }
 
 // SAFETY: `HeapRb` (`SharedRb`) uses atomic head/tail pointers internally,
-// making it safe for SPSC access from two threads. The `sources`, `ducking`
-// and ducking-profile fields are only mutated through `&mut self` methods, so
-// concurrent access via `&self` (the `LockRead` impl) is safe for the ring
-// buffer alone.
+// making it safe for SPSC access from two threads. The `sources`, `ducking`,
+// ducking-profile and `iir` fields are only mutated through the single
+// producer path (`mix`/`feed`/`push_automation`), while the consumer
+// (`LockRead`) touches only the ring — so concurrent access via `&self` is
+// safe for the ring buffer alone, and the IIR state is only stepped by the
+// one producer at a time.
 #[cfg(feature = "audio-cpal")]
 unsafe impl Sync for Mixer {}
 
@@ -50,6 +57,7 @@ impl Mixer {
             ducking: 1.0,
             ducking_profile: None,
             profile_started: None,
+            iir: UnsafeCell::new(IirSmoothing::new()),
             output: UnsafeCell::new(HeapRb::new(OUTPUT_CAPACITY)),
         }
     }
@@ -78,18 +86,27 @@ impl Mixer {
         self.ducking = ducking.clamp(0.0, 1.0);
     }
 
-    /// Schedule a smooth ducking transition. The mixer records the call time
-    /// via `std::time::Instant`; `ducking()` then returns `profile.level(t)`
-    /// (where `t` is elapsed milliseconds) until the profile's `duration_ms`
-    /// elapses, after which it reverts to the static gain.
-    ///
-    /// `Mixer` stays free of tokio/the `EventBus`: the **app** subscribes the
-    /// `EventBus`, builds the profile and calls this. From
-    /// `HardwareEvent::AudioDuckRequest { ducking, until }`, use
-    /// `duration_ms = until - now` (monotonic) and `target = ducking`.
+    /// Schedule a smooth ducking transition (time-based profile; see
+    /// [`push_automation`](Mixer::push_automation) for the lock-free
+    /// per-sample IIR path used by the real-time render thread).
     pub fn set_ducking_profile(&mut self, profile: DuckingProfile) {
         self.ducking_profile = Some(profile);
         self.profile_started = Some(Instant::now());
+    }
+
+    /// Queue an [`AutomationCommand`] for per-sample branchless IIR gain
+    /// smoothing. The async plane builds + pushes these; the render thread
+    /// steps them sample-by-sample in `push_mixed` — no mutex, no heap, no
+    /// `.await` on the audio callback.
+    pub fn push_automation(&mut self, cmd: AutomationCommand) {
+        // SAFETY: `&mut self` guarantees exclusive access.
+        unsafe { &mut *self.iir.get() }.apply(cmd);
+    }
+
+    /// Current IIR automation gain (1.0 when automation is inactive).
+    pub fn iir_gain(&self) -> f32 {
+        // SAFETY: read-only snapshot; producer mutates only between batches.
+        unsafe { &*self.iir.get() }.current
     }
 
     /// Collect one batch (512 frames) from each source.
@@ -106,13 +123,14 @@ impl Mixer {
     }
 
     /// Push one mixed batch into the output ring (SPSC producer, `&self`).
-    /// Ducking — static or the active profile's interpolated level — is
-    /// applied per-sample. Does NOT drain — leaves samples for the consumer
-    /// (`mix` or the `LockRead` cpal callback) to pop.
+    /// Gain is applied **per sample**: branchless IIR automation when active,
+    /// else the static/profile ducking level. Does NOT drain.
     fn push_mixed(&self, frames: &[Vec<f32>]) {
-        let ducking = self.ducking();
+        let static_ducking = self.ducking();
         // SAFETY: SPSC — the only writer here; the reader pops via `LockRead`.
         let rb = unsafe { &mut *self.output.get() };
+        // SAFETY: single producer steps the IIR automation state here.
+        let iir = unsafe { &mut *self.iir.get() };
         let max_len = frames.iter().map(|f| f.len()).max().unwrap_or(0);
         for i in 0..max_len {
             let mut sum = 0.0f32;
@@ -121,7 +139,8 @@ impl Mixer {
                     sum += sample;
                 }
             }
-            let _ = rb.push(sum * ducking);
+            let gain = if iir.active { iir.step() } else { static_ducking };
+            let _ = rb.push(sum * gain);
         }
     }
 
@@ -135,12 +154,6 @@ impl Mixer {
     }
 
     /// Mix all sources into the output ring and return the resulting frames.
-    ///
-    /// Each source is read into a stack buffer, then per-sample summing is
-    /// applied with the ducking multiplier. The mixed frames are pushed to the
-    /// output ring buffer; this function then drains that ring and returns the
-    /// collected samples so callers can immediately consume them (e.g. write to
-    /// a `cpal` stream or encode to a file).
     pub fn mix(&mut self) -> Vec<f32> {
         let frames = self.collect_mixed();
         self.push_mixed(&frames);
@@ -233,8 +246,6 @@ mod tests {
         let mut mixer = Mixer::new();
         assert_eq!(mixer.ducking(), 1.0); // static gain, no profile
 
-        // Linear ramp 1.0 -> 0.0 over 100 ms (level(0)=1.0, level(50)=0.5,
-        // level>=100 -> 0.0).
         mixer.set_ducking_profile(DuckingProfile {
             curve: crate::ducking::DuckingCurve::Linear,
             duration_ms: 100,
@@ -245,8 +256,6 @@ mod tests {
         let mid = mixer.ducking();
         assert!(mid < 1.0 && mid > 0.0, "mid-ramp ducking was {mid}");
 
-        // After the duration elapses, the profile expires and `ducking()`
-        // reverts to the static gain (1.0).
         std::thread::sleep(std::time::Duration::from_millis(60));
         assert_eq!(mixer.ducking(), 1.0);
     }
@@ -259,7 +268,6 @@ mod tests {
             value: 0.5,
         }));
         let out = mixer.mix();
-        // Each sample from the source is 0.5; with ducking 1.0 it stays 0.5.
         assert!(out.iter().all(|s| *s == 0.5));
         assert!(!out.is_empty());
     }
@@ -291,5 +299,32 @@ mod tests {
         let out = mixer.mix();
         assert!(out.iter().all(|s| (*s - 0.7).abs() < 1e-6));
         assert!(!out.is_empty());
+    }
+
+    #[test]
+    fn automation_eases_gain_per_sample() {
+        let mut mixer = Mixer::new();
+        mixer.add_source(Box::new(ConstantSource {
+            label: "t".into(),
+            value: 1.0,
+        }));
+        // Start a duck: target 0.0, moderate pole.
+        mixer.push_automation(AutomationCommand::DuckStart {
+            target_gain: 0.0,
+            coeff: 0.05,
+        });
+        assert!(mixer.iir_gain() < 1.0 + 1e-6); // begins near unity
+        let first = mixer.mix();
+        assert!(!first.is_empty());
+        // Per-sample easing: output should be non-increasing across the batch
+        // (gain ramps 1.0 -> ~0) and never exceed the source amplitude.
+        assert!(first.iter().all(|s| *s <= 1.0 + 1e-6));
+        let peak = first.iter().cloned().fold(0.0f32, f32::max);
+        assert!(peak <= 1.0 + 1e-6);
+        // After enough mixing, gain should approach 0 (full duck).
+        for _ in 0..40 {
+            let _ = mixer.mix();
+        }
+        assert!(mixer.iir_gain() < 0.1, "IIR did not ease toward duck: {}", mixer.iir_gain());
     }
 }
