@@ -3,22 +3,23 @@
 //! - **Acquisition** — reads raw I/Q samples from the SDR backend and
 //!   forwards batches to the DSP stage.
 //! - **DSP** — applies an FFT and detects peak magnitudes with a
-//!   `MagnitudeDetector`.
-//! - **Protocol parsing** — evaluates a `ProtocolParser` (built on `nom`)
-//!   over the sample stream, recognizes protocol headers and publishes
-//!   `mediamaster_core::events::RadioBurstDetected` events onto the
-//!   `EventBus`.
+//!   [`MagnitudeDetector`](crate::detector::MagnitudeDetector); a batch with
+//!   detected energy is forwarded to the parse stage.
+//! - **Demodulation + protocol parsing** — an [`OokDemodulator`](crate::demod::OokDemodulator)
+//!   recovers the byte stream from the I/Q batch, a
+//!   [`ProtocolParser`](crate::parser::ProtocolParser) (built on `nom`)
+//!   recognizes the protocol header, and the pipeline publishes
+//!   [`RadioBurstDetected`](mediamaster_core::events::HardwareEvent::RadioBurstDetected)
+//!   events onto the [`EventBus`](mediamaster_core::events::EventBus).
 //!
 //! ## Notes for implementors
 //!
 //! - The pipeline owns no runtime: it must be driven from a tokio runtime
 //!   (`#[tokio::main]` or `Runtime::block_on`). This keeps `mediamaster-rf`
 //!   a pure DSP crate beside the runtime.
-//! - The byte conversion in stage 3 is a **placeholder for the demodulator**.
-//!   Payload bytes are transported in the real part of the I/Q samples
-//!   (one byte per sample, values 0–255). Real front-ends (RTL-SDR, SoapySDR)
-//!   feed the payload bytes from their native demodulation path; nothing in
-//!   this crate needs to change — only the byte extraction step differs.
+//! - The demodulator is OOK/ASK envelope detection (the 315/433 MHz ISM-band
+//!   standard). Swap the [`OokDemodulator`] for a different demodulator by
+//!   passing it to [`Pipeline::new`] — the rest of the pipeline is unchanged.
 //! - The pipeline runs for as long as the source produces data. The source
 //!   signals end-of-stream by returning an empty batch; the pipeline then
 //!   joins all stages and returns `Ok(())`.
@@ -27,10 +28,9 @@
 //!
 //! ```no_run
 //! use std::sync::Arc;
-//! use num_complex::Complex;
 //! use mediamaster_core::events::EventBus;
 //! use mediamaster_core::MediamasterError;
-//! use mediamaster_rf::{Pipeline, PipelineConfig, ProtocolParser};
+//! use mediamaster_rf::{OokDemodulator, Pipeline, PipelineConfig};
 //!
 //! # async fn example() -> Result<(), MediamasterError> {
 //! let bus = Arc::new(EventBus::new(16));
@@ -43,7 +43,7 @@
 //! };
 //! struct FakeSource;
 //! impl mediamaster_rf::IqSource for FakeSource {
-//!     async fn acquire(&self, _count: usize) -> Vec<Complex<f32>> {
+//!     async fn acquire(&self, _count: usize) -> Vec<num_complex::Complex<f32>> {
 //!         unimplemented!()
 //!     }
 //!     fn sample_rate_hz(&self) -> u32 {
@@ -53,6 +53,7 @@
 //! let pipeline = Pipeline::new(
 //!     Arc::new(FakeSource),
 //!     Arc::new(()),
+//!     Arc::new(OokDemodulator::new(0.5, 4)),
 //!     bus,
 //!     config,
 //! );
@@ -63,14 +64,14 @@
 
 use std::sync::Arc;
 
+use crate::demod::OokDemodulator;
+use crate::detector::MagnitudeDetector;
 use crate::iq_source::{IqSample, IqSource};
+use crate::parser::ProtocolParser;
 use mediamaster_core::events::{EventBus, HardwareEvent};
 use mediamaster_core::MediamasterError;
 use mediamaster_core::RadioBurst;
 use mediamaster_core::SignalDetector;
-
-use crate::detector::MagnitudeDetector;
-use crate::parser::ProtocolParser;
 
 /// Configuration for a [`Pipeline`].
 ///
@@ -136,10 +137,9 @@ impl<S: IqSource> AcquisitionStage<S> {
 ///
 /// ```no_run
 /// use std::sync::Arc;
-/// use num_complex::Complex;
 /// use mediamaster_core::events::EventBus;
 /// use mediamaster_core::MediamasterError;
-/// use mediamaster_rf::{Pipeline, PipelineConfig, ProtocolParser};
+/// use mediamaster_rf::{OokDemodulator, Pipeline, PipelineConfig};
 ///
 /// # async fn example() -> Result<(), MediamasterError> {
 /// let bus = Arc::new(EventBus::new(16));
@@ -152,7 +152,7 @@ impl<S: IqSource> AcquisitionStage<S> {
 /// };
 /// struct FakeSource;
 /// impl mediamaster_rf::IqSource for FakeSource {
-///     async fn acquire(&self, _count: usize) -> Vec<Complex<f32>> {
+///     async fn acquire(&self, _count: usize) -> Vec<num_complex::Complex<f32>> {
 ///         unimplemented!()
 ///     }
 ///     fn sample_rate_hz(&self) -> u32 {
@@ -162,6 +162,7 @@ impl<S: IqSource> AcquisitionStage<S> {
 /// let pipeline = Pipeline::new(
 ///     Arc::new(FakeSource),
 ///     Arc::new(()),
+///     Arc::new(OokDemodulator::new(0.5, 4)),
 ///     bus,
 ///     config,
 /// );
@@ -172,6 +173,7 @@ impl<S: IqSource> AcquisitionStage<S> {
 pub struct Pipeline<S> {
     source: Arc<S>,
     parser: Arc<dyn ProtocolParser>,
+    demod: Arc<OokDemodulator>,
     bus: Arc<EventBus>,
     config: PipelineConfig,
 }
@@ -182,17 +184,21 @@ impl<S: IqSource> Pipeline<S> {
     /// `source` — the I/Q source (RTL-SDR, SoapySDR, test doubles…).
     /// `parser` — the protocol parser; use `()` for the default `tag(0xaa
     /// 0xbb)` recognizer.
+    /// `demod` — the demodulator that turns each I/Q batch into bytes (an
+    /// [`OokDemodulator`] for OOK/ASK).
     /// `bus` — the event bus the pipeline publishes `RadioBurstDetected`
     /// events onto.
     pub fn new(
         source: Arc<S>,
         parser: Arc<dyn ProtocolParser>,
+        demod: Arc<OokDemodulator>,
         bus: Arc<EventBus>,
         config: PipelineConfig,
     ) -> Self {
         Self {
             source,
             parser,
+            demod,
             bus,
             config,
         }
@@ -207,6 +213,7 @@ impl<S: IqSource> Pipeline<S> {
     pub async fn run(self) -> Result<(), MediamasterError> {
         let source = self.source;
         let parser = self.parser;
+        let demod = self.demod;
         let bus = self.bus;
         let config = self.config;
 
@@ -231,28 +238,34 @@ impl<S: IqSource> Pipeline<S> {
             Ok(())
         };
 
-        // Stage 3 — protocol parsing + event emission.
+        // Stage 3 — demodulation + protocol parsing + event emission.
         let stage_parse = async move {
-            let parser = parser;
             let mut rx = stage2_rx;
-            let bus = bus;
             while let Some((signals, samples)) = rx.recv().await {
-                let bytes = samples_to_bytes(&samples);
-                for signal in signals {
-                    if let Ok(header) = parser.parse_sync(&bytes) {
-                        let payload_start = header.sync_word.len();
-                        let payload = bytes[payload_start..]
-                            [..header.payload_len.min(bytes.len() - payload_start)]
-                            .to_vec();
-                        let burst = RadioBurst {
-                            id: signal.id,
-                            frequency_hz: config.center_frequency_hz,
-                            power_db: signal.magnitude_peak,
-                            payload,
-                            detected_by: "mediamaster-rf pipeline".to_string(),
-                        };
-                        let _ = bus.publish(HardwareEvent::RadioBurstDetected { burst });
-                    }
+                // Only attempt a protocol parse when the DSP stage flagged
+                // energy in this batch.
+                let Some(strongest) = signals.iter().max_by(|a, b| {
+                    a.magnitude_peak
+                        .partial_cmp(&b.magnitude_peak)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                }) else {
+                    continue;
+                };
+                let bytes = demod.demodulate(&samples);
+                if let Ok(header) = parser.parse_sync(&bytes) {
+                    let payload_start = header.sync_word.len();
+                    let payload = bytes
+                        .get(payload_start..payload_start + header.payload_len)
+                        .unwrap_or(&[])
+                        .to_vec();
+                    let burst = RadioBurst {
+                        id: strongest.id.clone(),
+                        frequency_hz: config.center_frequency_hz,
+                        power_db: strongest.magnitude_peak,
+                        payload,
+                        detected_by: format!("OOK@{}Hz", config.center_frequency_hz),
+                    };
+                    let _ = bus.publish(HardwareEvent::RadioBurstDetected { burst });
                 }
             }
             Ok(())
@@ -262,38 +275,5 @@ impl<S: IqSource> Pipeline<S> {
             Ok(((), (), ())) => Ok(()),
             Err(_) => Err(MediamasterError::Other("pipeline stage failed".to_string())),
         }
-    }
-}
-
-/// Convert I/Q samples to a byte stream for the protocol parser.
-///
-/// Placeholder for the demodulator: payload bytes are carried in the real
-/// part of the I/Q samples (one byte per sample, values 0–255). A real
-/// front-end replaces this function with its native payload extraction; the
-/// rest of the pipeline is unchanged.
-pub fn samples_to_bytes(samples: &[IqSample]) -> Vec<u8> {
-    samples.iter().map(|s| s.re as i32 as u8).collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn samples_to_bytes_recovers_payload_bytes() {
-        let samples = vec![
-            IqSample::new(0xaa as f32, 0.0),
-            IqSample::new(0xbb as f32, 0.0),
-            IqSample::new(0x01 as f32, 0.0),
-            IqSample::new(0x02 as f32, 0.0),
-            IqSample::new(0x03 as f32, 0.0),
-            IqSample::new(0x04 as f32, 0.0),
-        ];
-        let bytes = samples_to_bytes(&samples);
-        assert_eq!(
-            bytes,
-            vec![0xaa, 0xbb, 0x01, 0x02, 0x03, 0x04],
-            "placeholder byte conversion must be exact for 0-255"
-        );
     }
 }

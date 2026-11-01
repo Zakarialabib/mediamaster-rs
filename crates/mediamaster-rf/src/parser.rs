@@ -29,11 +29,11 @@ pub trait ProtocolParser: Send + Sync {
 
 impl ProtocolParser for () {
     fn parse_sync<'a>(&self, input: &'a [u8]) -> Result<Header, nom::Err<Error<&'a [u8]>>> {
-        let (_rest, _) = tag(b"\xaa\xbb")(input)?;
+        let (rest, _) = tag(b"\xaa\xbb")(input)?;
         Ok(Header {
             kind: ProtocolKind::Unknown,
             sync_word: vec![0xaa, 0xbb],
-            payload_len: 0,
+            payload_len: rest.len(),
         })
     }
 }
@@ -50,7 +50,8 @@ mod tests {
         let header = result.unwrap();
         assert_eq!(header.kind, ProtocolKind::Unknown);
         assert_eq!(header.sync_word, vec![0xaa, 0xbb]);
-        assert_eq!(header.payload_len, 0);
+        // Everything after the 2-byte sync word is the payload.
+        assert_eq!(header.payload_len, 2);
     }
 
     #[test]
