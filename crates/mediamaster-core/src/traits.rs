@@ -1,12 +1,19 @@
-//! Async hardware traits shared across domains.
+//! Adapter hardware traits shared across domains.
 //!
 //! These traits are the **adapter surface**: `tv-rs`, `cctv-rs`, and any
 //! hardware backend implement them to plug into the mediamaster ecosystem.
-//! Downstream users can import them directly from the crate root
-//! (`mediamaster_core::AudioSource`) thanks to the re-exports in `lib.rs`.
+//! `AsyncSensor` is object-safe (`dyn AsyncSensor`) via `Pin<Box<dyn Future>>`
+//! — no proc-macros, no `tokio` — so `mediamaster-sensors` can hold a
+//! `Vec<Box<dyn AsyncSensor>>`.
+
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+use core::future::Future;
+use core::pin::Pin;
 
 // Re-export types that live in `types` so existing code that imports them
 // via `mediamaster_core::traits::{Signal, SensorReading}` keeps compiling.
+use crate::error::MediamasterError;
 pub use crate::types::{SensorReading, Signal};
 
 /// A source that yields PCM frames into a caller-supplied buffer.
@@ -22,13 +29,15 @@ pub trait AudioSource: Send + Sync {
     fn label(&self) -> &str;
 }
 
-/// A hardware sensor read through a standard async interface.
+/// A hardware sensor read through an object-safe async interface.
 ///
-/// Implemented for I2C/Serial/SPI sensors wrapped in async pollers.
-#[allow(async_fn_in_trait)]
+/// Returns a boxed future so `Box<dyn AsyncSensor>` is valid. `&mut self` so a
+/// driver may keep per-poll state without interior mutability.
 pub trait AsyncSensor: Send + Sync {
-    /// Return the latest reading (never blocks the async runtime).
-    async fn read(&self) -> SensorReading;
+    /// Poll the next sensor sample asynchronously.
+    fn read_sample<'a>(
+        &'a mut self,
+    ) -> Pin<Box<dyn Future<Output = Result<SensorReading, MediamasterError>> + Send + 'a>>;
 }
 
 /// A detector that scans a magnitude spectrum and finds signal peaks.

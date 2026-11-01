@@ -10,7 +10,7 @@
 //!   [`ProtocolParser`](crate::parser::ProtocolParser) (built on `nom`)
 //!   recognizes the protocol header, and the pipeline publishes
 //!   [`RadioBurstDetected`](mediamaster_core::events::HardwareEvent::RadioBurstDetected)
-//!   events onto the [`EventBus`](mediamaster_core::events::EventBus).
+//!   events onto the [`EventBus`](mediamaster_bus::EventBus).
 //!
 //! ## Notes for implementors
 //!
@@ -28,7 +28,7 @@
 //!
 //! ```no_run
 //! use std::sync::Arc;
-//! use mediamaster_core::events::EventBus;
+//! use mediamaster_bus::EventBus;
 //! use mediamaster_core::MediamasterError;
 //! use mediamaster_rf::{OokDemodulator, Pipeline, PipelineConfig};
 //!
@@ -68,7 +68,8 @@ use crate::demod::OokDemodulator;
 use crate::detector::MagnitudeDetector;
 use crate::iq_source::{IqSample, IqSource};
 use crate::parser::ProtocolParser;
-use mediamaster_core::events::{EventBus, HardwareEvent};
+use mediamaster_bus::EventBus;
+use mediamaster_core::events::HardwareEvent;
 use mediamaster_core::MediamasterError;
 use mediamaster_core::RadioBurst;
 use mediamaster_core::SignalDetector;
@@ -137,7 +138,7 @@ impl<S: IqSource> AcquisitionStage<S> {
 ///
 /// ```no_run
 /// use std::sync::Arc;
-/// use mediamaster_core::events::EventBus;
+/// use mediamaster_bus::EventBus;
 /// use mediamaster_core::MediamasterError;
 /// use mediamaster_rf::{OokDemodulator, Pipeline, PipelineConfig};
 ///

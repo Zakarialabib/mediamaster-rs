@@ -8,7 +8,8 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
-mediamaster-core = { path = "../mediamaster-core", version = "0.2.0" }
+mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
+mediamaster-bus = { path = "../mediamaster-bus", version = "0.3.0" }
 mediamaster-rf = { path = "../mediamaster-rf", version = "0.2.0" }
 mediamaster-sensors = { path = "../mediamaster-sensors", version = "0.2.0" }
 mediamaster-audio = { path = "../mediamaster-audio", version = "0.2.0" }

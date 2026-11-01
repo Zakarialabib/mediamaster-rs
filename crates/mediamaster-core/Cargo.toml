@@ -1,7 +1,7 @@
 [package]
 name = "mediamaster-core"
-version = "0.2.0"
-description = "Shared event bus, traits, and types for the mediamaster-rs ecosystem"
+version = "0.3.0"
+description = "Shared vocabulary (traits, types, caps) for the mediamaster-rs ecosystem — alloc-only, no_std, tokio-free"
 authors = ["SignageMaster Team <team@signage-master.example.com>"]
 edition = "2021"
 rust-version = "1.94"
@@ -11,10 +11,13 @@ documentation = "https://docs.rs/mediamaster-core"
 keywords = ["audio", "sdr", "sensors", "traits", "events"]
 categories = ["embedded", "hardware-support", "no-std"]
 
+[features]
+# Opt-in serde derives for the shared types (off by default so core stays
+# alloc-only with no serializer pulled in unless the host needs it).
+serde-sync = ["dep:serde"]
+
 [dependencies]
-tokio = { workspace = true }
-serde = { workspace = true }
-thiserror = { workspace = true }
+serde = { version = "1", default-features = false, features = ["alloc", "derive"], optional = true }
 
 [lib]
 name = "mediamaster_core"

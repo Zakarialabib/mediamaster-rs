@@ -10,7 +10,8 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast::error::RecvError;
 
 use mediamaster_audio::ducking::{DuckingCurve, DuckingProfile};
-use mediamaster_core::events::{EventBus, HardwareEvent};
+use mediamaster_bus::EventBus;
+use mediamaster_core::events::HardwareEvent;
 use mediamaster_core::types::{RadioBurst, RoomState};
 
 use crate::audio::AudioBridge;
