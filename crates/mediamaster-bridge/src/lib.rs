@@ -44,7 +44,7 @@
 //! ```
 
 pub mod audio;
-pub mod device;
+pub mod events;
 pub mod rf;
 pub mod sensors;
 
@@ -59,6 +59,6 @@ pub use mediamaster_core::types::{RoomState, SensorReading, Signal};
 
 // Re-export the bridge entry points
 pub use audio::AudioBridge;
-pub use device::EventHandlers;
+pub use events::EventHandlers;
 pub use rf::RfBridge;
 pub use sensors::SensorBridge;

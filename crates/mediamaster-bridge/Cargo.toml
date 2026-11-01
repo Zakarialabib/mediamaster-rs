@@ -24,3 +24,8 @@ mediamaster-rf = { path = "../mediamaster-rf", version = "0.1.0" }
 tokio = { workspace = true, features = ["sync", "macros"] }
 serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true, optional = true }
+
+[dev-dependencies]
+# Tests only: `#[tokio::test]` + spawn + sleep. The library itself stays on
+# `sync`/`macros` (the `run` loop just awaits a broadcast receiver).
+tokio = { workspace = true, features = ["rt", "time", "macros", "sync"] }
