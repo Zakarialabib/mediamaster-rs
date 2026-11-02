@@ -1,0 +1,23 @@
+[package]
+name = "mediamaster-engine"
+version = "0.3.0"
+description = "Engine coordinator: AudioBus (lock-free PCM ring) + TranscodePlan (capability-decision) + EngineSelector (backend pick)"
+authors = ["SignageMaster Team <team@signage-master.example.com>"]
+edition = "2021"
+rust-version = "1.95"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
+mediamaster-bus = { path = "../mediamaster-bus", version = "0.3.0" }
+mediamaster-audio = { path = "../mediamaster-audio", version = "0.2.0" }
+mediamaster-rf = { path = "../mediamaster-rf", version = "0.2.0" }
+mediamaster-sensors = { path = "../mediamaster-sensors", version = "0.2.0" }
+mediamaster-probe = { path = "../probe", version = "0.3.0" }
+mediamaster-codec = { path = "../codec", version = "0.3.0" }
+ringbuf = { version = "0.3", features = ["alloc"] }
+thiserror = { workspace = true }
+
+[lib]
+name = "mediamaster_engine"
+path = "src/lib.rs"
