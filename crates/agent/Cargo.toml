@@ -1,6 +1,6 @@
 [package]
 name = "mediamaster-agent"
-version = "0.1.0"
+version = "0.3.0"
 description = "Autonomous reconciliation loop uniting audio ducking, sensor context fusion, and RF signal presence"
 authors = ["SignageMaster Team <team@signage-master.example.com>"]
 edition = "2021"

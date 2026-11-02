@@ -1,8 +1,8 @@
 [package]
 name = "mediamaster-codec"
-version = "0.1.0"
+version = "0.3.0"
 description = "Capability-aware codec slotting: CapsMatrix consumption, HW slot budgets, and DegradationTier fallback"
-authors = ["SignageMaster Team <team@signagemaster.com>"]
+authors = ["SignageMaster Team <team@signage-master.example.com>"]
 edition = "2021"
 rust-version = "1.95"
 license = "MIT OR Apache-2.0"
@@ -10,9 +10,6 @@ readme = "README.md"
 keywords = ["codec", "hardware", "caps", "mediacodec", "mediafoundation"]
 categories = ["multimedia", "hardware-support"]
 repository = "https://github.com/Zakarialabib/mediamaster-rs"
-
-# Not published until the 0.3.0 native codec backends land (MF/NDK).
-publish = false
 
 [dependencies]
 mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }

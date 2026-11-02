@@ -62,17 +62,17 @@ Every crate lives at `crates/<dir>` and adheres to strict dependency layering. *
       └────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.1 Published Baseline (`0.1.1`) vs. `0.2.0` Expansion Matrix
+### 2.1 Published Baseline (`0.2.0` shipped) vs. `0.3.0` Expansion Matrix
 
 | Crate | Status | Core Responsibility & Key Types |
 | :--- | :--- | :--- |
-| **`mediamaster-core`** | **Published (`0.2.0`)** *(0.3.0: strip `tokio`, add CapsMatrix vocab)* | **Current:** `AudioTarget`, `RoomState`, `SensorReading`, `RadioBurst`, `Signal`, `MediamasterError`, `EventBus`, and the `AudioSource`/`AsyncSensor`/`SignalDetector` traits. **To add (0.3.0):** `MediaDescriptor`, `Codec`, `PixelFormat`, `CodecCaps`, `CapsMatrix`, `MediaCapabilityBundleV1`, `MediaError` + `Remedy`; relocate `EventBus` + `AsyncSensor` to `-sensors`/`-agent` (drops `tokio`). |
+|| **`mediamaster-core`** | **Published (`0.3.0`)** — purified (tokio stripped, `EventBus` relocated to `-bus`), CapsMatrix vocabulary added | **Current:** `AudioTarget`, `RoomState` (`EmergencyOverride`), `SensorReading`, `RadioBurst`, `Signal`, `MediamasterError`, `EventPublisher`, `AsyncSensor`/`SignalDetector` traits, `CapsMatrix`, `Codec`, `CodecCaps`, `PixelFormat`, `DegradationTier`, `MaintenanceLease`, `MediaCapabilityBundleV1`, `MediaError` + `Remedy`. |
 | **`mediamaster-audio`** | **Published (`0.2.0`)** | Lock-free real-time PCM `Mixer` (`ringbuf::HeapRb` SPSC), smooth volume attenuation (`DuckingCurve`, `DuckingProfile`), typed audio `Zones` + `ZoneChanged` events, `cpal` hardware sink (`audio-cpal`), `symphonia` decoding (`decode`), and `MediaSourceAdapter` bridging `tv-rs` / `cctv-rs` audio triggers. |
-| **`mediamaster-sensors`** | **Published (`0.2.0`)** | `DebouncedSensor`, `SensorAggregator`, and `FusionEngine` computing deterministic `RoomState` (`Empty`, `Occupied`, `LowLight`, `MotionDetected`, `PersonPresent`, `Unavailable`; `EmergencyOverride` to-add in 0.3.0) from physical GPIO/I2C/USB sensors. |
+|| **`mediamaster-sensors`** | **Published (`0.2.0`)** | `DebouncedSensor`, `SensorAggregator`, and `FusionEngine` computing deterministic `RoomState` (`Empty`, `Occupied`, `LowLight`, `MotionDetected`, `PersonPresent`, `Unavailable`, `EmergencyOverride`). |
 | **`mediamaster-rf`** | **Published (`0.2.0`)** | 3-stage SDR/RF `Pipeline` (acquisition → DSP → demod/parse; `AcquisitionStage` over `IqSource`), `rustfft` peak detection (`MagnitudeDetector`), `OokDemodulator` (OOK/ASK envelope demod), and `nom` frame parser (`ProtocolParser`). |
-| **`mediamaster-probe`** | **New (`0.3.0` — first deliverable)** | Pure-Rust, zero-FFmpeg container & bitstream header parser (`mp4parse`, `matroska`, `symphonia-core`). Extracts exact codec profile, level, HDR10/P010 flags, chroma subsampling, and frame rate without spawning `ffmpeg`. |
-| **`mediamaster-codec`** | **New (`0.4.0+` — future)** | Hardware capability discovery (`CapsMatrix`) and unified `Decoder`/`Encoder` traits over three isolated feature backends: **Windows Media Foundation (`mf`)**, **Android NDK `AMediaCodec` (`mediacodec`)**, and optional **FFmpeg FFI (`ffmpeg`)**. |
-| **`mediamaster-agent`** | **New (`0.4.0+` — future)** | Autonomous reconciliation loop: watches `RoomState` + `AudioBus` + transcode queues, applies `DuckingProfile` on paging/sensor events, enforces `MaintenanceLease`, and logs health to JSONL. |
+| `mediamaster-probe` | **New (`0.3.0` — Phase 1, first deliverable)** | Pure-Rust, zero-FFmpeg container & bitstream header parser (`mp4parse`, `matroska`, `symphonia-core`). Extracts exact codec profile, level, HDR10/P010 flags, chroma subsampling, and frame rate without spawning `ffmpeg`. |
+|| **`mediamaster-codec`** | **New (0.3.0 — Phase 3)** | Hardware capability discovery (`CapsMatrix`) and unified `Decoder`/`Encoder` traits over three isolated feature backends: **Windows Media Foundation (`mf`)**, **Android NDK `AMediaCodec` (`mediacodec`)**, and optional **FFmpeg FFI (`ffmpeg`)**. Portable slice (`CodecSlotManager`, `DegradationTier`, `CapsDiscovery`) + MF/NDK actor scaffolds (device-validation pending). |
+|| **`mediamaster-agent`** | **New (0.3.0 — Phase 4)** | Autonomous reconciliation loop: watches `RoomState` + `AudioBus` + transcode queues, applies `DuckingProfile` on paging/sensor events, enforces `MaintenanceLease`, and logs health to JSONL. Live Paging & Sensor Ducking Loop. |
 
 ---
 
