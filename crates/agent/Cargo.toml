@@ -13,7 +13,7 @@ categories = ["asynchronous", "hardware-support"]
 [dependencies]
 mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
 mediamaster-bus = { path = "../mediamaster-bus", version = "0.3.0" }
-mediamaster-audio = { path = "../mediamaster-audio", version = "0.2.0" }
+mediamaster-audio = { path = "../mediamaster-audio", version = "0.3.0" }
 mediamaster-sensors = { path = "../mediamaster-sensors", version = "0.2.0" }
 mediamaster-rf = { path = "../mediamaster-rf", version = "0.2.0" }
 mediamaster-bridge = { path = "../mediamaster-bridge", version = "0.1.0" }

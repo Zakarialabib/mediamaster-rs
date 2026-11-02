@@ -15,7 +15,7 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-mediamaster-audio = { path = "../mediamaster-audio", version = "0.2.0" }
+mediamaster-audio = { path = "../mediamaster-audio", version = "0.3.0" }
 
 [lib]
 name = "mediamaster_rag"

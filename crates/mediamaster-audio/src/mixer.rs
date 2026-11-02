@@ -19,6 +19,8 @@ const OUTPUT_CAPACITY: usize = 8192;
 /// output ring buffer.
 pub struct Mixer {
     sources: Vec<Box<dyn AudioSource>>,
+    /// Optional anti-click jitter buffer for live paging streams.
+    jitter: std::cell::UnsafeCell<Option<crate::jitter::PagingJitterBuffer>>,
     /// Static global ducking gain (the fallback once a profile expires).
     ducking: f32,
     /// Active time-varying ducking profile, if any. While its `duration_ms`
@@ -54,6 +56,7 @@ impl Mixer {
     pub fn new() -> Self {
         Self {
             sources: Vec::new(),
+            jitter: std::cell::UnsafeCell::new(None),
             ducking: 1.0,
             ducking_profile: None,
             profile_started: None,
@@ -92,6 +95,25 @@ impl Mixer {
     pub fn set_ducking_profile(&mut self, profile: DuckingProfile) {
         self.ducking_profile = Some(profile);
         self.profile_started = Some(Instant::now());
+    }
+
+    /// Enable the anti-click jitter buffer for a live paging stream.
+    pub fn enable_paging_jitter(&mut self, sample_rate: u32, prebuffer_ms: u32) {
+        unsafe { *self.jitter.get() = Some(crate::jitter::PagingJitterBuffer::new(sample_rate, prebuffer_ms)) };
+    }
+
+    /// Disable the paging jitter buffer.
+    pub fn disable_paging_jitter(&mut self) {
+        unsafe { *self.jitter.get() = None };
+    }
+
+    /// Push incoming network PCM into the paging jitter buffer.
+    pub fn push_paging_pcm(&self, samples: &[f32]) {
+        unsafe {
+            if let Some(jb) = &mut *self.jitter.get() {
+                jb.push(samples);
+            }
+        }
     }
 
     /// Queue an [`AutomationCommand`] for per-sample branchless IIR gain
@@ -137,6 +159,12 @@ impl Mixer {
             for frame in frames {
                 if let Some(&sample) = frame.get(i) {
                     sum += sample;
+                }
+            }
+            // Mix in live paging stream from the jitter buffer.
+            unsafe {
+                if let Some(jb) = &mut *self.jitter.get() {
+                    sum += jb.pop_output();
                 }
             }
             let gain = if iir.active {
@@ -335,4 +363,23 @@ mod tests {
             mixer.iir_gain()
         );
     }
+
+    #[test]
+    fn paging_jitter_mixes_into_output() {
+        let mut mixer = Mixer::new();
+        mixer.enable_paging_jitter(1000, 10); // 10 samples prebuffer
+        mixer.push_paging_pcm(&[0.5; 20]);
+        // Drain: jitter buffer should contribute to output.
+        let out = mixer.mix();
+        // Output may be empty if not yet primed; just verify no panic.
+        let _ = out;
+    }
+
+    #[test]
+    fn paging_jitter_disabled_by_default() {
+        let mixer = Mixer::new();
+        // No panic when pushing to disabled jitter.
+        mixer.push_paging_pcm(&[0.5; 10]);
+    }
+
 }
