@@ -34,11 +34,25 @@ let mut slots = CodecSlotManager::new(&CapsMatrix {
 slots.acquire(SlotKind::Decoder)?; // ok
 ```
 
-## Native backends (not yet published)
+## Native backends (feature-gated, scaffolded)
 
-The feature-gated native backends (`mf` for Windows Media Foundation, `mediacodec`
-for the Android MediaCodec NDK) land with the 0.3.0 release; this crate ships the
-portable slot-budget and degradation logic first.
+The `mf` and `mediacodec` features gate the platform-specific backing actors. Both are
+staged as **portable-shaped, drop-order-law-compliant scaffolds** that compile on this
+host for the portable core (`cargo check --no-default-features`); the real platform
+bindings compile only on the target devices:
+
+- **`mf` (Windows Media Foundation)** — in `src/mf_actor.rs`. A dedicated
+  `CoInitializeEx` actor thread owns `MfRuntimeGuard` as its **last field**, so every
+  `IMFSourceReader` / `IMFSinkWriter` / `IMFTopology` is released by the guard's
+  `Drop` before `MFShutdown()` / `CoUninitialize()`. Ready to bind to the real
+  `windows 0.62` `Win32_Media_MediaFoundation` COM interfaces.
+- **`mediacodec` (Android MediaCodec NDK)** — in `src/ndk_codec.rs`. The
+  `AndroidContext` is provided by the runtime via `ndk-context`; `JNI_OnLoad` is
+  deliberately absent; `SafeNativeWindow` and the codec object are drop-ordered so a
+  surface is detached before the `AMediaCodec` is torn down.
+
+Both features are **not publishable yet**; they require device validation on Windows
+(`cargo check -F mf`) and Android NDK (`cargo check -F mediacodec`) before 0.3.0.
 
 ## License
 
