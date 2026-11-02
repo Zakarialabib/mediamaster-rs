@@ -7,6 +7,8 @@
 - **mediamaster-probe** (`0.3.0`, new crate): Pure-Rust, zero-FFmpeg container & bitstream header inspector (`mp4parse`, `matroska`, `symphonia-core`). Extracts codec profile, level, HDR10/P010 flags, chroma subsampling, and frame rate without spawning `ffmpeg`.
 - **mediamaster-codec** (`0.3.0`, new crate): Capability-aware codec slotting — `CodecSlotManager`, `DegradationTier` fallback ladder, `CapsDiscovery` seam (`SoftwareCapsDiscovery` portable fallback). Native MF/NDK actors scaffolded behind `mf`/`mediacodec` features (device-validation pending on Windows/Android).
 - **mediamaster-agent** (`0.3.0`, new crate): Live Paging & Sensor Ducking Loop — subscribes to the shared `EventBus` and commands `mediamaster-audio::Mixer` on `RoomState::EmergencyOverride` / live `RadioBurstDetected`. Unites `mediamaster-audio`, `mediamaster-sensors`, `mediamaster-rf`.
+- **mediamaster-rag** (`0.1.0`, new crate): Acoustic profiles, codec matrix & sensor-context knowledge store — `CodecKnowledgeStore`, `SceneMemoryStore`, `PlaybookStore` for RAG-based acoustic paging and codec recommendation.
+- **mediamaster-engine** (`0.3.0`, new crate): Coordination layer — `AudioBus` (lock-free PCM ring), `TranscodePlan` (capability-decision), `EngineSelector` (backend pick: MF/NDK or software fallback).
 - **mediamaster-core** (`0.3.0`): purified — `tokio` stripped, `EventBus` relocated to `mediamaster-bus`, `#![no_std]` + `alloc`. CapsMatrix vocabulary added: `CapsMatrix`, `Codec`, `CodecCaps`, `PixelFormat`, `DegradationTier`, `MaintenanceLease`, `MediaCapabilityBundleV1`, `MediaError` + `Remedy`. `RoomState::EmergencyOverride` added.
 - **mediamaster-bus** (`0.3.0`): `EventBus` relocated out of core into its own crate (`tokio` broadcast).
 

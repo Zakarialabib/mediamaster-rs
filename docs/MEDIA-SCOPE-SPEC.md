@@ -28,7 +28,7 @@ To prevent dependency bloat or split-brain hardware ownership inside `SignageMas
 | :--- | :--- | :--- |
 | **Display Control, EDID, DLNA & Byte-Serving (`206`/HLS HTTP)** | **`tv-rs`** (`tv-rs-core`, `tv-rs-local`, `tv-rs-dlna`, `tv-rs-media`, `tv-rs-agent`) | `mediamaster-rs` **never** speaks SSDP, MDC, SSAP, or HDMI-CEC, and never hosts an `axum` HTTP server. `mediamaster-rs` produces compliant media segments/frames; `tv-rs-media` serves them. |
 | **IP Cameras, ONVIF, RTSP Pull, PTZ & NALU Multiplexing** | **`cctv-rs`** (`cctv-core`, `cctv-onvif`, `cctv-rtsp`, `cctv-rtp`, `cctv-agent`) | `mediamaster-rs` **never** manages ONVIF SOAP, PTZ motors, or RTSP Digest challenges. If `mediamaster-rs` needs to transcode or record a camera feed, it consumes demuxed NALUs from `cctv-rs`. |
-| **Container Probing, HW Codecs (MF/MediaCodec), Lock-Free Audio Mixing & Sensor/RF Room Fusion** | **`mediamaster-rs`** (`mediamaster-core`, `-audio`, `-sensors`, `-rf`, `-probe`, `-codec`, `-agent`) | Owns local container inspection, GPU/ASIC transcode pipelines (`windows` Media Foundation / Android `ndk` `AMediaCodec`), real-time PCM ducking (`ringbuf` + `cpal`), and physical room telemetry (`FusionEngine` + SDR `rustfft`). |
+| **Container Probing, HW Codecs (MF/MediaCodec), Lock-Free Audio Mixing & Sensor/RF Room Fusion** | **`mediamaster-rs`** (`mediamaster-core`, `-audio`, `-sensors`, `-rf`, `-probe`, `-codec`, `-agent`, `-rag`, `-engine`) | Owns local container inspection, GPU/ASIC transcode pipelines (`windows` Media Foundation / Android `ndk` `AMediaCodec`), real-time PCM ducking (`ringbuf` + `cpal`), physical room telemetry (`FusionEngine` + SDR `rustfft`), and the RAG knowledge store (acoustic profiles, codec matrix, scene memory). |
 
 ---
 
@@ -73,6 +73,8 @@ Every crate lives at `crates/<dir>` and adheres to strict dependency layering. *
 | `mediamaster-probe` | **New (`0.3.0` — Phase 1, first deliverable)** | Pure-Rust, zero-FFmpeg container & bitstream header parser (`mp4parse`, `matroska`, `symphonia-core`). Extracts exact codec profile, level, HDR10/P010 flags, chroma subsampling, and frame rate without spawning `ffmpeg`. |
 || **`mediamaster-codec`** | **New (0.3.0 — Phase 3)** | Hardware capability discovery (`CapsMatrix`) and unified `Decoder`/`Encoder` traits over three isolated feature backends: **Windows Media Foundation (`mf`)**, **Android NDK `AMediaCodec` (`mediacodec`)**, and optional **FFmpeg FFI (`ffmpeg`)**. Portable slice (`CodecSlotManager`, `DegradationTier`, `CapsDiscovery`) + MF/NDK actor scaffolds (device-validation pending). |
 || **`mediamaster-agent`** | **New (0.3.0 — Phase 4)** | Autonomous reconciliation loop: watches `RoomState` + `AudioBus` + transcode queues, applies `DuckingProfile` on paging/sensor events, enforces `MaintenanceLease`, and logs health to JSONL. Live Paging & Sensor Ducking Loop. |
+|| **`mediamaster-rag`** | **New (0.1.0 — RAG layer)** | Acoustic profiles, codec matrix & sensor-context knowledge store — `CodecKnowledgeStore`, `SceneMemoryStore`, `PlaybookStore` for RAG-based acoustic paging and codec recommendation. |
+|| **`mediamaster-engine`** | **New (0.3.0 — Phase 5)** | Coordination layer — `AudioBus` (lock-free PCM ring), `TranscodePlan` (capability-decision), `EngineSelector` (backend pick: MF/NDK or software fallback). |
 
 ---
 

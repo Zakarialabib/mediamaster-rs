@@ -27,7 +27,9 @@ mediamaster-rs/
     ├── mediamaster-bridge/           # app-integration facade (unpublished)
     ├── mediamaster-probe/            # pure-Rust container & bitstream inspector
     ├── mediamaster-codec/            # CapsMatrix consumption, HW slot budgets, MF/NDK
-    └── mediamaster-agent/            # live paging & sensor ducking reconciliation loop
+    ├── mediamaster-agent/            # live paging & sensor ducking reconciliation loop
+    ├── mediamaster-rag/              # acoustic profiles, codec matrix & sensor-context knowledge store
+    ├── mediamaster-engine/           # AudioBus, TranscodePlan, EngineSelector coordination layer
     └── mediamaster-integration-tests # cross-crate tests (unpublished)
 ```
 
@@ -44,6 +46,8 @@ mediamaster-rs/
 | `mediamaster-probe` | Pure-Rust container & bitstream header inspector (MP4/MKV/WebM) | `thiserror` |
 | `mediamaster-codec` | CapsMatrix consumption, HW slot budgets, MF/NDK actor scaffolds | `mediamaster-core` |
 | `mediamaster-agent` | Live paging & sensor ducking reconciliation loop | `mediamaster-core`, `-bus`, `-audio`, `-sensors`, `-rf`, `-bridge` |
+| `mediamaster-rag` | Acoustic profiles, codec matrix & sensor-context knowledge store | `mediamaster-core` |
+| `mediamaster-engine` | AudioBus, TranscodePlan, EngineSelector coordination layer | `mediamaster-core`, `-bus`, `-codec`, `-audio`, `ringbuf` |
 
 `mediamaster-bridge` and `mediamaster-integration-tests` are `publish = false`
 — they exist for the in-repo apps/tests and are not released to crates.io.
@@ -61,6 +65,8 @@ mediamaster-rs/
 | [mediamaster-probe](https://crates.io/crates/mediamaster-probe) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-probe) |
 | [mediamaster-codec](https://crates.io/crates/mediamaster-codec) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-codec) |
 | [mediamaster-agent](https://crates.io/crates/mediamaster-agent) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-agent) |
+| [mediamaster-rag](https://crates.io/crates/mediamaster-rag) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-rag) |
+| [mediamaster-engine](https://crates.io/crates/mediamaster-engine) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-engine) |
 
 The 0.2.0 release is live on crates.io — see [`docs/RELEASE.md`](docs/RELEASE.md). The `0.3.0` expansion (probe, codec, agent) is shipping next; see [`docs/RELEASE.md`](docs/RELEASE.md) for the coordinated publish plan.
 
