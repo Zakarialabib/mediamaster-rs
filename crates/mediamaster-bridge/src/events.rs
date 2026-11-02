@@ -77,7 +77,9 @@ impl EventHandlers {
             HardwareEvent::RadioBurstDetected { burst } => {
                 *lock(&self.last_burst) = Some(burst.clone());
             }
-            HardwareEvent::ZoneChanged { .. } | HardwareEvent::CctvMotionDetected { .. } => {}
+            HardwareEvent::ZoneChanged { .. }
+            | HardwareEvent::CctvMotionDetected { .. }
+            | HardwareEvent::EnvironmentalDrift { .. } => {}
         }
     }
 

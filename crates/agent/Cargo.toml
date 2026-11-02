@@ -17,6 +17,8 @@ mediamaster-audio = { path = "../mediamaster-audio", version = "0.2.0" }
 mediamaster-sensors = { path = "../mediamaster-sensors", version = "0.2.0" }
 mediamaster-rf = { path = "../mediamaster-rf", version = "0.2.0" }
 mediamaster-bridge = { path = "../mediamaster-bridge", version = "0.1.0" }
+mediamaster-rag = { path = "../mediamaster-rag", version = "0.1.0" }
+mediamaster-codec = { path = "../codec", version = "0.3.0" }
 thiserror = { workspace = true }
 
 [dependencies.tokio]
