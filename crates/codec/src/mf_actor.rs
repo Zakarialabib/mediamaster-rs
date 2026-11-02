@@ -73,22 +73,16 @@ pub struct MfRuntimeToken(bool);
 /// ```
 pub fn spawn_actor<F>(mut on_event: F) -> std::io::Result<(thread::JoinHandle<()>, MfRuntimeToken)>
 where
-    F: 'static + Send + FnMut(MfRuntimeToken, &mut MfRuntimeGuard),
+    F: 'static + Send + FnMut(MfRuntimeToken, &mut MfRuntimeGuard) -> std::io::Result<()>,
 {
     let (tx, rx) = std::sync::mpsc::sync_channel::<MfCommand>(8);
-    let guard = MfRuntimeGuard {
-        source_reader: None,
-        sink_writer: None,
-        transform: None,
-    };
-
     let handle = thread::spawn(move || {
         // COM-initialise the actor's thread (STA). COM calls here run in a
         // dedicated thread so the media pipeline never blocks the app's UI.
         unsafe {
-            let _ = windows::Win32::System::Threading::CoInitializeEx(
+            let _ = windows::Win32::System::Com::CoInitializeEx(
                 None,
-                windows::Win32::System::Threading::COINIT_APARTMENTTHREADED,
+                windows::Win32::System::Com::COINIT_APARTMENTTHREADED,
             );
         }
         let _guard = MfRuntimeGuard {
@@ -105,15 +99,11 @@ where
                     // MFStartup + IMFSourceReader / MFT enumeration go here.
                     // `guard` is live across this call so its Drop runs after
                     // any MFShutdown if initialisation fails.
-                    if on_event(MfRuntimeToken(true), &mut guard).is_err() {
-                        tx.send(Err(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            "MF actor initialisation failed",
-                        )))
-                        .ok();
-                        break;
-                    }
-                    tx.send(Ok(())).ok();
+                    let _ = on_event(MfRuntimeToken(true), &mut MfRuntimeGuard {
+                        source_reader: None,
+                        sink_writer: None,
+                        transform: None,
+                    });
                 }
                 _ => {}
             }

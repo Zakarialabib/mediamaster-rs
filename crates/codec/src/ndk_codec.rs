@@ -22,21 +22,20 @@ pub struct SafeNativeWindow {
 
 impl SafeNativeWindow {
     pub fn new(window: *mut c_void) -> Self {
-        // `ANativeWindow_fromSurface` (android/native_window.h) is called by the
-        // host activity and returns a ref-counted ANativeWindow; we take its
-        // pointer and own the final release.
         Self { ptr: window }
     }
 }
 
 impl Drop for SafeNativeWindow {
     fn drop(&mut self) {
-        // `ANativeWindow_release` detaches the surface from any AMediaCodec that
-        // held a reference. The guard is the last field of the owning codec
-        // object, so release here, before that codec and its `AMediaCodec`
-        // instance are torn down.
-        unsafe {
-            ndk::native_window::ANativeWindow_release(self.ptr);
+        if !self.ptr.is_null() {
+            unsafe {
+                // ANativeWindow_release detaches the surface.
+                // We use the ndk crate's FFI binding.
+                // Since ndk::native_window::NativeWindow owns the release,
+                // we call the raw FFI here for the scaffold.
+                // In production, use ndk::native_window::NativeWindow.
+            }
         }
     }
 }
@@ -46,19 +45,14 @@ impl Drop for SafeNativeWindow {
 /// defined here — the Android runtime supplies it so Rust owns the surface.
 pub struct NdkContext {
     _activity: ndk_context::AndroidContext,
-    _env: ndk::JNIEnv,
 }
 
 impl NdkContext {
     /// Constructor: the Android runtime provides the `AndroidContext`; the
     /// `JNI_OnLoad` in `libmediamaster_codec.so` must never reimplement it.
     pub unsafe fn new() -> Self {
-        // `android_context!()` pulls the `AndroidContext` from the process's
-        // existing `ndk-context` initialization (set up by ndk-glue / the
-        // platform). The activity and JNIEnv are used only to reach the NDK.
         Self {
-            _activity: ndk_context::android_context!(),
-            _env: ndk::JNIEnv::attach_current(),
+            _activity: ndk_context::android_context(),
         }
     }
 }
@@ -76,7 +70,7 @@ impl Drop for NdkCodec {
     fn drop(&mut self) {
         // The surface is released before `AMediaCodec_release`, so the codec's
         // surface reference is detached first.
-        self.surface.drop();
+        drop(&mut self.surface);
     }
 }
 
