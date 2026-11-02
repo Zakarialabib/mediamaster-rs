@@ -26,8 +26,8 @@ fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 /// Routes [`EventBus`] events to the domain bridges.
 ///
 /// The application builds one `EventHandlers` over its own [`AudioBridge`]
-/// handle, then either pushes events one at a time with [`handle_event`] or
-/// spawns [`run`] to subscribe to the bus and dispatch automatically.
+/// handle, then either pushes events one at a time with [`Self::handle_event`] or
+/// spawns [`Self::run`] to subscribe to the bus and dispatch automatically.
 ///
 /// Routing:
 /// - [`AudioDuckRequest`](HardwareEvent::AudioDuckRequest) →
@@ -35,9 +35,9 @@ fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 ///   milliseconds to the `ducking` target (the `source` name is informational;
 ///   the mixer ducks globally).
 /// - [`SensorContextChange`](HardwareEvent::SensorContextChange) → recorded as
-///   the latest [`RoomState`] (see [`last_room_state`]).
+///   the latest [`RoomState`] (see [`Self::last_room_state`]).
 /// - [`RadioBurstDetected`](HardwareEvent::RadioBurstDetected) → recorded as
-///   the latest [`RadioBurst`] (see [`last_burst`]).
+///   the latest [`RadioBurst`] (see [`Self::last_burst`]).
 /// - [`ZoneChanged`](HardwareEvent::ZoneChanged) /
 ///   [`CctvMotionDetected`](HardwareEvent::CctvMotionDetected) → no-op (this
 ///   workspace has no zone or CCTV bridge; the apps own those surfaces).
@@ -57,7 +57,7 @@ impl EventHandlers {
         }
     }
 
-    /// Dispatch a single event (synchronous; used by [`run`] and by tests or
+    /// Dispatch a single event (synchronous; used by `run` and by tests or
     /// custom app loops).
     pub fn handle_event(&self, event: &HardwareEvent) {
         match event {

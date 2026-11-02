@@ -3,14 +3,14 @@
 //! - **Acquisition** — reads raw I/Q samples from the SDR backend and
 //!   forwards batches to the DSP stage.
 //! - **DSP** — applies an FFT and detects peak magnitudes with a
-//!   [`MagnitudeDetector`](crate::detector::MagnitudeDetector); a batch with
+//!   [`crate::detector::MagnitudeDetector`]; a batch with
 //!   detected energy is forwarded to the parse stage.
-//! - **Demodulation + protocol parsing** — an [`OokDemodulator`](crate::demod::OokDemodulator)
+//! - **Demodulation + protocol parsing** — an [`crate::demod::OokDemodulator`]
 //!   recovers the byte stream from the I/Q batch, a
-//!   [`ProtocolParser`](crate::parser::ProtocolParser) (built on `nom`)
+//!   [`crate::parser::ProtocolParser`] (built on `nom`)
 //!   recognizes the protocol header, and the pipeline publishes
-//!   [`RadioBurstDetected`](mediamaster_core::events::HardwareEvent::RadioBurstDetected)
-//!   events onto the [`EventBus`](mediamaster_bus::EventBus).
+//!   [`mediamaster_core::events::HardwareEvent::RadioBurstDetected`]
+//!   events onto the [`mediamaster_bus::EventBus`].
 //!
 //! ## Notes for implementors
 //!
@@ -18,7 +18,7 @@
 //!   (`#[tokio::main]` or `Runtime::block_on`). This keeps `mediamaster-rf`
 //!   a pure DSP crate beside the runtime.
 //! - The demodulator is OOK/ASK envelope detection (the 315/433 MHz ISM-band
-//!   standard). Swap the [`OokDemodulator`] for a different demodulator by
+//!   standard). Swap the [`crate::demod::OokDemodulator`] for a different demodulator by
 //!   passing it to [`Pipeline::new`] — the rest of the pipeline is unchanged.
 //! - The pipeline runs for as long as the source produces data. The source
 //!   signals end-of-stream by returning an empty batch; the pipeline then
@@ -186,7 +186,7 @@ impl<S: IqSource> Pipeline<S> {
     /// `parser` — the protocol parser; use `()` for the default `tag(0xaa
     /// 0xbb)` recognizer.
     /// `demod` — the demodulator that turns each I/Q batch into bytes (an
-    /// [`OokDemodulator`] for OOK/ASK).
+    /// [`crate::demod::OokDemodulator`] for OOK/ASK).
     /// `bus` — the event bus the pipeline publishes `RadioBurstDetected`
     /// events onto.
     pub fn new(

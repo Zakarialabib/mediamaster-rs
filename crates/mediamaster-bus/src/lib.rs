@@ -1,7 +1,7 @@
 //! Concrete tokio event bus for the mediamaster-rs ecosystem.
 //!
-//! [`mediamaster-core`] stays `tokio`-free and only defines the runtime-agnostic
-//! [`EventPublisher`](mediamaster_core::EventPublisher) trait. This crate owns
+//! [`mediamaster_core`] stays `tokio`-free and only defines the runtime-agnostic
+//! [`mediamaster_core::EventPublisher`] trait. This crate owns
 //! the concrete `tokio::sync::broadcast` implementation that host runtimes
 //! (`mediamaster-agent`, apps, tests) instantiate and inject.
 

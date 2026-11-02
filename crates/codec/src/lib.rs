@@ -1,8 +1,8 @@
 //! `mediamaster-codec` — capability-aware codec slotting.
 //!
-//! Consumes the [`CapsMatrix`] vocabulary from `mediamaster-core` to manage
+//! Consumes the [`mediamaster_core::CapsMatrix`] vocabulary from `mediamaster-core` to manage
 //! concurrent hardware codec permits ([`CodecSlotManager`]) and walk the
-//! [`DegradationTier`] fallback ladder when the hardware budget is spent.
+//! [`mediamaster_core::DegradationTier`] fallback ladder when the hardware budget is spent.
 //!
 //! Platform-native backends (Windows Media Foundation, Android MediaCodec NDK)
 //! plug into [`CapsDiscovery`]; they are feature-gated (`mf`, `mediacodec`) so

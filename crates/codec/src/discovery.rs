@@ -1,4 +1,4 @@
-//! Platform hooks that enumerate hardware codecs into a [`CapsMatrix`].
+//! Platform hooks that enumerate hardware codecs into a [`mediamaster_core::CapsMatrix`].
 //!
 //! The OS (Windows Media Foundation, Android MediaCodec) is the source of truth
 //! for what hardware a host actually has. This module defines the seam those
@@ -7,7 +7,7 @@
 
 use mediamaster_core::{CapsMatrix, Codec, CodecCaps, PixelFormat};
 
-/// Enumerates what a host can actually decode/encode into a [`CapsMatrix`].
+/// Enumerates what a host can actually decode/encode into a [`mediamaster_core::CapsMatrix`].
 pub trait CapsDiscovery {
     /// Probe the host and return its capability matrix.
     fn discover(&self) -> CapsMatrix;

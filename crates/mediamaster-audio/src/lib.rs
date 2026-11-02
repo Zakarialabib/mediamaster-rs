@@ -1,6 +1,6 @@
 //! Lock-free PCM mixing, ducking, and routing for the mediamaster-rs ecosystem.
 //!
-//! This crate mixes PCM frames from multiple [`AudioSource`] implementations,
+//! This crate mixes PCM frames from multiple [`MediaSourceAdapter`] implementations,
 //! applies per-source gain and global ducking, and routes the result to an OS
 //! audio sink via `cpal`.
 //!

@@ -3,7 +3,7 @@
 //! Guards against hardware slot exhaustion (the Android MediaCodec
 //! `maxSupportedInstances` limit and the equivalent Windows MF MFT instance
 //! budget): [`CodecSlotManager`] counts concurrent decoder/encoder permits
-//! against a [`CapsMatrix`] budget and refuses to over-allocate. When the
+//! against a [`mediamaster_core::CapsMatrix`] budget and refuses to over-allocate. When the
 //! budget is spent, the caller walks the [`DegradationTier`] ladder until a
 //! satisfiable tier is reached.
 
@@ -25,7 +25,7 @@ pub struct SlotExhausted {
     pub max: u8,
 }
 
-/// Tracks concurrent hardware decoder/encoder permits against a [`CapsMatrix`]
+/// Tracks concurrent hardware decoder/encoder permits against a [`mediamaster_core::CapsMatrix`]
 /// budget (`max_hw_decoder_instances` / `max_hw_encoder_instances`).
 ///
 /// A budget of `0` in the matrix means *unknown*; the manager then treats the
