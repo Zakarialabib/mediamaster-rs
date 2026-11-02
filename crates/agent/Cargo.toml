@@ -7,7 +7,7 @@ edition = "2021"
 rust-version = "1.95"
 license = "Apache-2.0"
 repository = "https://github.com/Zakarialabib/mediamaster-rs"
-keywords = ["autonomous", "coordination", "audio", "sensors", "rf", "paging"]
+keywords = ["autonomous", "coordination", "audio", "sensors", "rf"]
 categories = ["asynchronous", "hardware-support"]
 
 [dependencies]
