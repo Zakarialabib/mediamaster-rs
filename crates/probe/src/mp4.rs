@@ -8,12 +8,11 @@ pub(crate) fn probe_mp4(data: &[u8]) -> Result<MediaDescriptor, ProbeError> {
     if data.is_empty() {
         return Err(ProbeError::EmptyInput);
     }
-    let mut ctx = Ctx::default();
+    let mut ctx = Ctx::new();
     walk_boxes(data, &mut ctx)?;
     Ok(ctx.into_desc())
 }
 
-#[derive(Default)]
 struct Ctx {
     desc: MediaDescriptor,
     video: Option<VideoInfo>,
@@ -24,6 +23,16 @@ struct Ctx {
 }
 
 impl Ctx {
+    fn new() -> Self {
+        Self {
+            desc: MediaDescriptor::new(Container::Mp4),
+            video: None,
+            audio: None,
+            mdhd_timescale: 0,
+            mdhd_duration: 0,
+        }
+    }
+
     fn video(&mut self) -> &mut VideoInfo {
         self.video
             .get_or_insert_with(|| VideoInfo::new(VideoCodec::Unknown))
@@ -35,11 +44,12 @@ impl Ctx {
     }
 
     fn into_desc(mut self) -> MediaDescriptor {
-        if self.desc.duration_ms.is_none() && self.mdhd_timescale > 0 {
-            if self.mdhd_duration != u64::MAX && self.mdhd_duration != u32::MAX as u64 {
-                self.desc.duration_ms =
-                    Some(self.mdhd_duration * 1000 / self.mdhd_timescale as u64);
-            }
+        if self.desc.duration_ms.is_none()
+            && self.mdhd_timescale > 0
+            && self.mdhd_duration != u64::MAX
+            && self.mdhd_duration != u32::MAX as u64
+        {
+            self.desc.duration_ms = Some(self.mdhd_duration * 1000 / self.mdhd_timescale as u64);
         }
         self.desc.video = self.video;
         self.desc.audio = self.audio;
@@ -80,11 +90,9 @@ fn walk_boxes(data: &[u8], ctx: &mut Ctx) -> Result<(), ProbeError> {
 
 fn handle_box(btype: &[u8], content: &[u8], ctx: &mut Ctx) -> Result<(), ProbeError> {
     match btype {
-        b"ftyp" => {
-            if content.len() >= 4 {
-                let brand = String::from_utf8_lossy(&content[0..4]).into_owned();
-                ctx.desc.brand = Some(brand);
-            }
+        b"ftyp" if content.len() >= 4 => {
+            let brand = String::from_utf8_lossy(&content[0..4]).into_owned();
+            ctx.desc.brand = Some(brand);
         }
         b"moov" | b"trak" | b"mdia" | b"minf" | b"stbl" | b"edts" | b"dinf" | b"udta" => {
             walk_boxes(content, ctx)?;
@@ -315,7 +323,6 @@ fn audio_codec_from_fourcc(f: &[u8]) -> AudioCodec {
         b".mp3" | b"mp3 " => AudioCodec::Mp3,
         b"fLaC" => AudioCodec::Flac,
         b"Opus" | b"opus" => AudioCodec::Opus,
-        b"ac-3" => AudioCodec::Unknown,
         _ => AudioCodec::Unknown,
     }
 }

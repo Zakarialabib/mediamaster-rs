@@ -33,10 +33,7 @@ pub(crate) fn probe_ebml(data: &[u8]) -> Result<MediaDescriptor, ProbeError> {
     if data.len() < 4 || data[0..4] != [0x1A, 0x45, 0xDF, 0xA3] {
         return Err(ProbeError::UnrecognizedContainer);
     }
-    let mut ctx = Ctx {
-        desc: MediaDescriptor::new(Container::Mkv),
-        ..Ctx::default()
-    };
+    let mut ctx = Ctx::new(Container::Mkv);
     walk(data, &mut ctx)?;
     if let Some(ticks) = ctx.duration_ticks {
         let ms = (ticks * ctx.timecode_scale as f64 / 1_000_000.0).round() as u64;
@@ -45,7 +42,6 @@ pub(crate) fn probe_ebml(data: &[u8]) -> Result<MediaDescriptor, ProbeError> {
     Ok(ctx.into_desc())
 }
 
-#[derive(Default)]
 struct Ctx {
     desc: MediaDescriptor,
     timecode_scale: u64, // ns per tick; Matroska default 1_000_000 (=1ms).
@@ -55,6 +51,16 @@ struct Ctx {
 }
 
 impl Ctx {
+    fn new(container: Container) -> Self {
+        Self {
+            desc: MediaDescriptor::new(container),
+            timecode_scale: 1_000_000,
+            duration_ticks: None,
+            track: None,
+            saw_doctype: false,
+        }
+    }
+
     fn into_desc(mut self) -> MediaDescriptor {
         if !self.saw_doctype {
             self.desc.container = Container::Mkv;
@@ -71,14 +77,6 @@ struct Track {
     height: Option<u32>,
     channels: Option<u64>,
     sample_rate: Option<f64>,
-}
-
-impl Ctx {
-    fn timecode_scale(&mut self) {
-        if self.timecode_scale == 0 {
-            self.timecode_scale = 1_000_000;
-        }
-    }
 }
 
 fn walk(data: &[u8], ctx: &mut Ctx) -> Result<(), ProbeError> {
