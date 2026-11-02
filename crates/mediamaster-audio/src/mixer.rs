@@ -139,7 +139,11 @@ impl Mixer {
                     sum += sample;
                 }
             }
-            let gain = if iir.active { iir.step() } else { static_ducking };
+            let gain = if iir.active {
+                iir.step()
+            } else {
+                static_ducking
+            };
             let _ = rb.push(sum * gain);
         }
     }
@@ -325,6 +329,10 @@ mod tests {
         for _ in 0..40 {
             let _ = mixer.mix();
         }
-        assert!(mixer.iir_gain() < 0.1, "IIR did not ease toward duck: {}", mixer.iir_gain());
+        assert!(
+            mixer.iir_gain() < 0.1,
+            "IIR did not ease toward duck: {}",
+            mixer.iir_gain()
+        );
     }
 }

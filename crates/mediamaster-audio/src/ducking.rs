@@ -152,14 +152,20 @@ mod tests {
     fn automation_coeff_shrinks_with_longer_duration() {
         let fast = AutomationCommand::coeff_for(50, 48_000);
         let slow = AutomationCommand::coeff_for(500, 48_000);
-        assert!(fast > slow, "shorter ease needs a larger pole: {fast} <= {slow}");
+        assert!(
+            fast > slow,
+            "shorter ease needs a larger pole: {fast} <= {slow}"
+        );
         assert!(fast > 0.0 && fast <= 1.0);
         assert!(slow > 0.0 && slow <= 1.0);
     }
 
     #[test]
     fn automation_accessors() {
-        let duck = AutomationCommand::DuckStart { target_gain: 0.3, coeff: 0.02 };
+        let duck = AutomationCommand::DuckStart {
+            target_gain: 0.3,
+            coeff: 0.02,
+        };
         assert_eq!(duck.target(1.0), 0.3);
         assert_eq!(duck.coeff(), 0.02);
         let rel = AutomationCommand::DuckRelease { coeff: 0.01 };
@@ -173,31 +179,52 @@ mod tests {
         assert!(!iir.active);
         assert_eq!(iir.step(), 1.0, "inactive smoother stays at unity");
 
-        iir.apply(AutomationCommand::DuckStart { target_gain: 0.0, coeff: 0.05 });
+        iir.apply(AutomationCommand::DuckStart {
+            target_gain: 0.0,
+            coeff: 0.05,
+        });
         assert!(iir.active);
         let mut prev = 1.0;
         for _ in 0..500 {
             let g = iir.step();
-            assert!(g <= prev + 1e-6, "ease must be monotone non-increasing: {g} > {prev}");
+            assert!(
+                g <= prev + 1e-6,
+                "ease must be monotone non-increasing: {g} > {prev}"
+            );
             assert!((0.0..=1.0).contains(&g));
             prev = g;
         }
-        assert!(iir.current < 0.05, "did not ease to duck target: {}", iir.current);
+        assert!(
+            iir.current < 0.05,
+            "did not ease to duck target: {}",
+            iir.current
+        );
     }
 
     #[test]
     fn iir_release_rises_to_full_volume() {
         let mut iir = IirSmoothing::new();
-        iir.apply(AutomationCommand::DuckStart { target_gain: 0.0, coeff: 0.05 });
+        iir.apply(AutomationCommand::DuckStart {
+            target_gain: 0.0,
+            coeff: 0.05,
+        });
         for _ in 0..500 {
             iir.step();
         }
-        assert!(iir.current < 0.5, "should be ducked before release: {}", iir.current);
+        assert!(
+            iir.current < 0.5,
+            "should be ducked before release: {}",
+            iir.current
+        );
         iir.apply(AutomationCommand::DuckRelease { coeff: 0.05 });
         for _ in 0..500 {
             iir.step();
         }
-        assert!((iir.current - 1.0).abs() < 0.05, "did not release to full: {}", iir.current);
+        assert!(
+            (iir.current - 1.0).abs() < 0.05,
+            "did not release to full: {}",
+            iir.current
+        );
     }
 
     #[test]

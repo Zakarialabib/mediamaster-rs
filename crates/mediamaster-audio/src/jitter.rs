@@ -34,7 +34,6 @@ const TARGET_FILL: f64 = 0.5;
 pub struct PagingJitterBuffer {
     ring: HeapRb<f32>,
     prebuffer_threshold: usize,
-    sample_rate: u32,
     /// Fractional read cursor into the drain (for Hermite interpolation).
     read_frac: f64,
     /// Samples already pushed but not yet prebuffer-gated out.
@@ -45,24 +44,25 @@ pub struct PagingJitterBuffer {
     fade_remaining: usize,
     fade_total: usize,
     last_sample: f32,
+    /// Set once an underrun fade has fully completed; cleared when data resumes.
+    faded_out: bool,
 }
 
 impl PagingJitterBuffer {
     /// Create a buffer targeting `sample_rate` with a `prebuffer_ms` warm-up.
     pub fn new(sample_rate: u32, prebuffer_ms: u32) -> Self {
         let sr = sample_rate.max(1);
-        let threshold =
-            ((sr as u64 * prebuffer_ms as u64) / 1000) as usize;
+        let threshold = ((sr as u64 * prebuffer_ms as u64) / 1000) as usize;
         Self {
             ring: HeapRb::new(CAPACITY),
             prebuffer_threshold: threshold.max(1),
-            sample_rate: sr,
             read_frac: 0.0,
             seen: 0,
             started: false,
             fade_remaining: 0,
             fade_total: ((sr as u64 * FADE_MS as u64) / 1000) as usize,
             last_sample: 0.0,
+            faded_out: false,
         }
     }
 
@@ -75,7 +75,7 @@ impl PagingJitterBuffer {
     pub fn push(&mut self, samples: &[f32]) {
         for &s in samples {
             // If full, drop one sample to make room (never allocate).
-            if self.ring.is_full() {
+            if self.ring.len() == self.ring.capacity() {
                 let _ = self.ring.pop();
                 self.read_frac = (self.ring.len() as f64) * TARGET_FILL / CAPACITY as f64;
             }
@@ -120,10 +120,23 @@ impl PagingJitterBuffer {
         if !self.started {
             return 0.0;
         }
+        // Sustained underrun after a completed fade: stay silent (no re-trigger).
+        if self.faded_out {
+            if self.ring.len() == 0 {
+                return 0.0;
+            }
+            // New data arrived — resume normal draining.
+            self.faded_out = false;
+            self.fade_remaining = 0;
+        }
         // Underrun fade already in progress: continue it to silence.
         if self.fade_remaining > 0 {
             let remaining = self.fade_remaining;
             self.fade_remaining -= 1;
+            if self.fade_remaining == 0 {
+                // Fade finished: latch so continued underrun stays silent.
+                self.faded_out = true;
+            }
             if self.fade_total == 0 {
                 return 0.0;
             }
@@ -133,7 +146,7 @@ impl PagingJitterBuffer {
             return (self.last_sample as f64 * gain) as f32;
         }
 
-        if self.ring.is_empty() {
+        if self.ring.len() == 0 {
             // Starved: begin the fade-out instead of a hard cut (no click).
             self.fade_remaining = self.fade_total.max(1);
             return self.pop_output();
@@ -187,7 +200,11 @@ impl PagingJitterBuffer {
             return 0.0;
         }
         let i = offset % total;
-        if i < a.len() { a[i] } else { b[i - a.len()] }
+        if i < a.len() {
+            a[i]
+        } else {
+            b[i - a.len()]
+        }
     }
 }
 
@@ -247,7 +264,8 @@ mod tests {
         let ratio = jb.fill_ratio();
         assert!(ratio > 0.0 && ratio < 1.0);
         // Step near equilibrium when ~half full.
-        jb.push(&[0.1; CAPACITY.saturating_sub(jb.len())]);
+        let n = CAPACITY.saturating_sub(jb.len());
+        jb.push(&vec![0.1; n]);
         let step = jb.resample_step();
         assert!((step - 1.0).abs() < 1e-3, "step was {step}");
     }
