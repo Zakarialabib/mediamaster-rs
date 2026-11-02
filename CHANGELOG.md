@@ -1,7 +1,21 @@
 # Changelog
 
-## [0.2.0] — 2026-11-01
+## [0.3.0] — Unreleased (Expansion Target)
+<!-- Coordinated 0.3.0 workspace release: probe, codec, agent, + purified core. See docs/RELEASE.md. -->
 
+### Added
+- **mediamaster-probe** (`0.3.0`, new crate): Pure-Rust, zero-FFmpeg container & bitstream header inspector (`mp4parse`, `matroska`, `symphonia-core`). Extracts codec profile, level, HDR10/P010 flags, chroma subsampling, and frame rate without spawning `ffmpeg`.
+- **mediamaster-codec** (`0.3.0`, new crate): Capability-aware codec slotting — `CodecSlotManager`, `DegradationTier` fallback ladder, `CapsDiscovery` seam (`SoftwareCapsDiscovery` portable fallback). Native MF/NDK actors scaffolded behind `mf`/`mediacodec` features (device-validation pending on Windows/Android).
+- **mediamaster-agent** (`0.3.0`, new crate): Live Paging & Sensor Ducking Loop — subscribes to the shared `EventBus` and commands `mediamaster-audio::Mixer` on `RoomState::EmergencyOverride` / live `RadioBurstDetected`. Unites `mediamaster-audio`, `mediamaster-sensors`, `mediamaster-rf`.
+- **mediamaster-core** (`0.3.0`): purified — `tokio` stripped, `EventBus` relocated to `mediamaster-bus`, `#![no_std]` + `alloc`. CapsMatrix vocabulary added: `CapsMatrix`, `Codec`, `CodecCaps`, `PixelFormat`, `DegradationTier`, `MaintenanceLease`, `MediaCapabilityBundleV1`, `MediaError` + `Remedy`. `RoomState::EmergencyOverride` added.
+- **mediamaster-bus** (`0.3.0`): `EventBus` relocated out of core into its own crate (`tokio` broadcast).
+
+### Changed
+- **Versioning alignment**: `mediamaster-probe`, `mediamaster-codec`, `mediamaster-agent` bumped from 0.1.0 → 0.3.0 to match the 0.3.0 expansion core.
+- **License headers**: standard authors + licenses applied across new crates.
+
+## [0.2.0] — 2026-11-01
+<!-- (unchanged baseline release) -->
 Coordinated workspace release (aligned versions across the published crates),
 plus the first publish of `mediamaster-bridge`. See [`docs/RELEASE.md`](docs/RELEASE.md).
 
@@ -29,9 +43,8 @@ plus the first publish of `mediamaster-bridge`. See [`docs/RELEASE.md`](docs/REL
 ## [0.1.1] — 2026-10-27
 
 ### Added
-|- **mediamaster-core**: `SensorReading::priority()` for fusion ordering; `BoundingBox::area()` helper; `MediamasterError::Other(String)` + `context()` for arbitrary error wrapping; `EventBus::capacity()` + `#[must_use]` on `publish`/`subscribe`; all public types re-exported at crate root (`use mediamaster_core::{EventBus, HardwareEvent, RoomState, Signal, SensorReading, AudioSource, …}`)
-|- **mediamaster-integration-tests** (new workspace crate, `publish = false`): cross-crate e2e tests (RF detection → EventBus → FusionEngine)
-|- 3 runnable examples: `mix_two_sine_waves` (audio), `synthetic_detection` (rf), `fusion_walk` (sensors)
+||- **mediamaster-core**: `SensorReading::priority()` for fusion ordering; `BoundingBox::area()` helper; `MediamasterError::Other(String)` + `context()` for arbitrary error wrapping; `EventBus::capacity()` + `#[must_use]` on `publish`/`subscribe`; all public types re-exported at crate root (`use mediamaster_core::{EventBus, HardwareEvent, RoomState, Signal, SensorReading, AudioSource, …}`)||- **mediamaster-integration-tests** (new workspace crate, `publish = false`): cross-crate e2e tests (RF detection → EventBus → FusionEngine)
+||- 3 runnable examples: `mix_two_sine_waves` (audio), `synthetic_detection` (rf), `fusion_walk` (sensors)
 |- `rust-toolchain.toml` pinning Rust 1.95 + rustfmt + clippy components
 |- CI workflow: fmt + clippy (default + all-features) + test matrix
 |- Integration tests: 11 across 4 crates (event_bus, detector, fusion, mixer)
@@ -47,6 +60,6 @@ plus the first publish of `mediamaster-bridge`. See [`docs/RELEASE.md`](docs/REL
 |- `AudioSink` re-exported from `mediamaster_audio` behind `audio-cpal` feature (was private)
 
 ### Architecture & Case Study
-|- **Removed the `mediamaster-simple-signage` workspace crate** (it was a wrong placeholder). The real sign-age applications (`Simple-Signage dekstop windows app` and `companion-app mobile android app`) are external repos that adapt the crates by implementing the `mediamaster-core` traits.
+|- Removed the `mediamaster-simple-signage` workspace crate (it was a wrong placeholder). The real signage applications (`Simple-Signage dekstop windows app` and `companion-app mobile android app`) are external repos that adapt the crates by implementing the `mediamaster-core` traits.
 |- Updated `README.md` (indie-dev style, general conventions, crates.io + CI badges)
 |- Updated `docs/architecture.md` and `MIGRATION.md` to reflect the external-app-only architecture

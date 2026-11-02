@@ -1,0 +1,28 @@
+[package]
+name = "mediamaster-agent"
+version = "0.3.0"
+description = "Autonomous reconciliation loop uniting audio ducking, sensor context fusion, and RF signal presence"
+authors = ["SignageMaster Team <team@signage-master.example.com>"]
+edition = "2021"
+rust-version = "1.95"
+license = "Apache-2.0"
+repository = "https://github.com/Zakarialabib/mediamaster-rs"
+keywords = ["autonomous", "coordination", "audio", "sensors", "rf", "paging"]
+categories = ["asynchronous", "hardware-support"]
+
+[dependencies]
+mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
+mediamaster-bus = { path = "../mediamaster-bus", version = "0.3.0" }
+mediamaster-audio = { path = "../mediamaster-audio", version = "0.2.0" }
+mediamaster-sensors = { path = "../mediamaster-sensors", version = "0.2.0" }
+mediamaster-rf = { path = "../mediamaster-rf", version = "0.2.0" }
+mediamaster-bridge = { path = "../mediamaster-bridge", version = "0.1.0" }
+thiserror = { workspace = true }
+
+[dependencies.tokio]
+version = "1"
+features = ["rt-multi-thread", "time", "sync", "macros"]
+
+[lib]
+name = "mediamaster_agent"
+path = "src/lib.rs"

@@ -20,11 +20,14 @@ desktop call app and the phone companion app share.
 mediamaster-rs/
 ├── Cargo.toml
 └── crates/
-    ├── mediamaster-core/             # events, traits, shared types
+    ├── mediamaster-core/             # shared event bus, traits, types, CapsMatrix
     ├── mediamaster-audio/            # PCM mixing, ducking, zones, cpal sink
     ├── mediamaster-rf/               # SDR IQ pipeline, FFT, OOK demod, parsing
-    ├── mediamaster-sensors/          # sensor polling, debouncing, fusion
+    ├── mediamaster-sensors/          # sensor polling, debouncing, context fusion
     ├── mediamaster-bridge/           # app-integration facade (unpublished)
+    ├── mediamaster-probe/            # pure-Rust container & bitstream inspector
+    ├── mediamaster-codec/            # CapsMatrix consumption, HW slot budgets, MF/NDK
+    └── mediamaster-agent/            # live paging & sensor ducking reconciliation loop
     └── mediamaster-integration-tests # cross-crate tests (unpublished)
 ```
 
@@ -32,11 +35,15 @@ mediamaster-rs/
 
 | Crate | Purpose | Key dependencies |
 |-------|---------|------------------|
-| `mediamaster-core` | Shared event bus, traits, types | `tokio`, `serde`, `thiserror` |
+| `mediamaster-core` | Shared event bus, traits, types, CapsMatrix | `serde`, `thiserror` (no tokio, no_std) |
+| `mediamaster-bus` | Async `EventBus` (tokio broadcast) + `EventPublisher` trait | `tokio` |
 | `mediamaster-audio` | Lock-free PCM mixing, ducking, zones, routing | `mediamaster-core`, `ringbuf`; optional `cpal` (`audio-cpal`) |
 | `mediamaster-rf` | SDR IQ pipeline, FFT detection, OOK demod, protocol parsing | `mediamaster-core`, `rustfft`, `nom`, `num-complex` |
 | `mediamaster-sensors` | Async sensor polling, debouncing, context fusion | `mediamaster-core`, `tokio`; optional `embedded-hal-async` (`hw`) |
 | `mediamaster-bridge` | Unified facade for external apps + `EventBus` routing | `mediamaster-core`, `mediamaster-audio`, `mediamaster-rf`, `mediamaster-sensors` |
+| `mediamaster-probe` | Pure-Rust container & bitstream header inspector (MP4/MKV/WebM) | `thiserror` |
+| `mediamaster-codec` | CapsMatrix consumption, HW slot budgets, MF/NDK actor scaffolds | `mediamaster-core` |
+| `mediamaster-agent` | Live paging & sensor ducking reconciliation loop | `mediamaster-core`, `-bus`, `-audio`, `-sensors`, `-rf`, `-bridge` |
 
 `mediamaster-bridge` and `mediamaster-integration-tests` are `publish = false`
 — they exist for the in-repo apps/tests and are not released to crates.io.
@@ -45,13 +52,19 @@ mediamaster-rs/
 
 | Crate | Version |
 |-------|---------|
-| [mediamaster-core](https://crates.io/crates/mediamaster-core) | ![0.2.0](https://img.shields.io/crates/v/mediamaster-core) |
+| [mediamaster-core](https://crates.io/crates/mediamaster-core) | ![0.3.0](https://img.shields.io/crates/v/mediamaster-core) |
+| [mediamaster-bus](https://crates.io/crates/mediamaster-bus) | ![0.3.0](https://img.shields.io/crates/v/mediamaster-bus) |
 | [mediamaster-audio](https://crates.io/crates/mediamaster-audio) | ![0.2.0](https://img.shields.io/crates/v/mediamaster-audio) |
 | [mediamaster-rf](https://crates.io/crates/mediamaster-rf) | ![0.2.0](https://img.shields.io/crates/v/mediamaster-rf) |
 | [mediamaster-sensors](https://crates.io/crates/mediamaster-sensors) | ![0.2.0](https://img.shields.io/crates/v/mediamaster-sensors) |
 | [mediamaster-bridge](https://crates.io/crates/mediamaster-bridge) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-bridge) |
+| [mediamaster-probe](https://crates.io/crates/mediamaster-probe) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-probe) |
+| [mediamaster-codec](https://crates.io/crates/mediamaster-codec) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-codec) |
+| [mediamaster-agent](https://crates.io/crates/mediamaster-agent) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-agent) |
 
-The 0.2.0 release is live on crates.io — see [`docs/RELEASE.md`](docs/RELEASE.md).
+The 0.2.0 release is live on crates.io — see [`docs/RELEASE.md`](docs/RELEASE.md). The `0.3.0` expansion (probe, codec, agent) is shipping next; see [`docs/RELEASE.md`](docs/RELEASE.md) for the coordinated publish plan.
+
+"
 
 ## How an app uses these crates
 

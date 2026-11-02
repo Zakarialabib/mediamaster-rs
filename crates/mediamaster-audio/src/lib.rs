@@ -8,12 +8,14 @@
 //! for Symphonia-based asset decoding.
 
 pub mod ducking;
+pub mod jitter;
 pub mod mixer;
 pub mod sink;
 pub mod source;
 pub mod zones;
 
-pub use ducking::{DuckingCurve, DuckingProfile};
+pub use ducking::{AutomationCommand, DuckingCurve, DuckingProfile, IirSmoothing};
+pub use jitter::PagingJitterBuffer;
 pub use mixer::Mixer;
 #[cfg(feature = "audio-cpal")]
 pub use sink::AudioSink;

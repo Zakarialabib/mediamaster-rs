@@ -1,0 +1,28 @@
+[package]
+name = "mediamaster-codec"
+version = "0.3.0"
+description = "Capability-aware codec slotting: CapsMatrix consumption, HW slot budgets, and DegradationTier fallback"
+authors = ["SignageMaster Team <team@signage-master.example.com>"]
+edition = "2021"
+rust-version = "1.95"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+keywords = ["codec", "hardware", "caps", "mediacodec", "mediafoundation"]
+categories = ["multimedia", "hardware-support"]
+repository = "https://github.com/Zakarialabib/mediamaster-rs"
+
+[dependencies]
+mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
+thiserror = { workspace = true }
+windows = { version = "0.62", optional = true, features = ["Win32_Media_MediaFoundation", "Win32_System_Threading"] }
+ndk-context = { version = "0.1", optional = true }
+ndk = { version = "0.7", optional = true }
+
+# Native codec discovery backends (opt-in, platform-specific).
+[features]
+default = []
+# Windows Media Foundation actor (src/mf_actor.rs): CoInitializeEx thread +
+# MfRuntimeGuard drop-order law.
+mf = ["dep:windows"]
+# Android MediaCodec NDK actor (src/ndk_codec.rs): ndk-context AndroidContext.
+mediacodec = ["dep:ndk-context", "dep:ndk"]

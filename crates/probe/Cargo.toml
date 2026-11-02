@@ -1,0 +1,15 @@
+[package]
+name = "mediamaster-probe"
+version = "0.3.0"
+description = "Pure-Rust container & bitstream inspector (MP4, MKV, WebM) — zero C FFI, zero ffmpeg"
+authors = ["SignageMaster Team <team@signage-master.example.com>"]
+edition = "2021"
+rust-version = "1.95"
+license = "MIT OR Apache-2.0"
+
+[lib]
+name = "mediamaster_probe"
+path = "src/lib.rs"
+
+[dependencies]
+thiserror = { workspace = true }
