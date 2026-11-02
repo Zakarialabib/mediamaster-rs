@@ -13,8 +13,10 @@
 //! only subscribes, so it is runtime-agnostic and trivially testable.
 
 mod agent;
+pub mod layout;
 
-pub use agent::{Agent, AgentError};
+pub use agent::{AdaptiveDuckingConfig, Agent, AgentError};
+pub use layout::{ActiveLayoutPlan, ActiveStreamAssignment, LayoutOrchestrator};
 
 pub use mediamaster_audio::ducking::{DuckingCurve, DuckingProfile};
 pub use mediamaster_bus::EventBus;

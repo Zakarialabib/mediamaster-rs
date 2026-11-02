@@ -33,6 +33,14 @@ pub enum HardwareEvent {
         volume_db: f32,
         muted: bool,
     },
+    /// Continuous environmental sensor drift telemetry for atmospheric harmonization.
+    EnvironmentalDrift {
+        motion_density: f32,
+        mmwave_distance_m: f32,
+        ambient_lux: f32,
+        lux_rate_of_change: f32,
+        rf_burst_frequency: f32,
+    },
 }
 
 impl HardwareEvent {
@@ -43,6 +51,7 @@ impl HardwareEvent {
             HardwareEvent::RadioBurstDetected { .. } => "RadioBurstDetected",
             HardwareEvent::CctvMotionDetected { .. } => "CctvMotionDetected",
             HardwareEvent::ZoneChanged { .. } => "ZoneChanged",
+            HardwareEvent::EnvironmentalDrift { .. } => "EnvironmentalDrift",
         }
     }
 }
