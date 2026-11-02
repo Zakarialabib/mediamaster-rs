@@ -14,7 +14,7 @@ pub use codec_corpus::{
 pub use engine::{MediamasterRagFacade, RagContextEnvelope};
 pub use error::RagError;
 pub use playbooks::{
-    AcousticProfile, PagingDuckingPlaybook, PlaybookDuckingConfig, PlaybookStore, RagDuckingCurve,
+    AcousticProfile, DuckingCurve, DuckingProfile, PagingDuckingPlaybook, PlaybookStore,
     TriggerPattern, ZoneDuckingRule,
 };
 pub use scene_memory::{

@@ -15,6 +15,7 @@ use crate::scene_memory::{AtmospherePlaybook, SceneMemoryStore, SceneQuery};
 /// (e.g. `SignageMaster`) merging CCTV, TV-RS, and Mediamaster context.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RagContextEnvelope {
+    pub domain: String,
     pub source: String,
     pub timestamp_ms: u64,
     pub codec_context: Option<CodecRecommendation>,
@@ -95,7 +96,7 @@ impl MediamasterRagFacade {
         if let Some(p) = &paging_context {
             summary_parts.push(format!(
                 "PAGING [{}]: target gain {:.3}, hold {}ms",
-                p.name, p.default_ducking.target_gain, p.hold_time_ms
+                p.name, p.default_ducking.target, p.hold_time_ms
             ));
         }
 
@@ -106,6 +107,7 @@ impl MediamasterRagFacade {
         };
 
         RagContextEnvelope {
+            domain: "mediamaster-rs".into(),
             source: "mediamaster".into(),
             timestamp_ms,
             codec_context,

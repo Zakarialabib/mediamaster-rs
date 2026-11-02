@@ -4,7 +4,6 @@
 //! DuckingProfile curves (-18dB/-20dB over 300ms, or instant full mute) and
 //! multi-zone audio routing.
 
-use mediamaster_audio::ducking::{DuckingCurve, DuckingProfile};
 use serde::{Deserialize, Serialize};
 
 use crate::error::RagError;
@@ -22,56 +21,45 @@ pub enum TriggerPattern {
     AmbientDrift,
 }
 
-/// Serializable ducking curve representation for RAG storage.
+/// A ducking curve describing how background audio scales over time when a
+/// high-priority event fires.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum RagDuckingCurve {
+pub enum DuckingCurve {
+    /// Instant step down.
     Instant,
+    /// Smooth exponential decay.
     Exponential,
+    /// Linear ramp.
     Linear,
 }
 
-impl From<DuckingCurve> for RagDuckingCurve {
-    fn from(c: DuckingCurve) -> Self {
-        match c {
-            DuckingCurve::Instant => Self::Instant,
-            DuckingCurve::Exponential => Self::Exponential,
-            DuckingCurve::Linear => Self::Linear,
-        }
-    }
-}
-
-impl From<RagDuckingCurve> for DuckingCurve {
-    fn from(c: RagDuckingCurve) -> Self {
-        match c {
-            RagDuckingCurve::Instant => Self::Instant,
-            RagDuckingCurve::Exponential => Self::Exponential,
-            RagDuckingCurve::Linear => Self::Linear,
-        }
-    }
-}
-
-/// Serializable ducking profile configuration for playbooks.
+/// A ducking profile with a duration and target level.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct PlaybookDuckingConfig {
-    pub curve: RagDuckingCurve,
+pub struct DuckingProfile {
+    pub curve: DuckingCurve,
     pub duration_ms: u64,
-    pub target_gain: f32,
+    pub target: f32,
 }
 
-impl PlaybookDuckingConfig {
-    pub fn new(curve: DuckingCurve, duration_ms: u64, target_gain: f32) -> Self {
+impl DuckingProfile {
+    pub const FULL_MUTE: f32 = 0.0;
+    pub const FULL_VOLUME: f32 = 1.0;
+
+    pub fn new(curve: DuckingCurve, duration_ms: u64, target: f32) -> Self {
         Self {
-            curve: curve.into(),
+            curve,
             duration_ms,
-            target_gain,
+            target,
         }
     }
+}
 
-    pub fn to_ducking_profile(&self) -> DuckingProfile {
-        DuckingProfile {
-            curve: self.curve.into(),
-            duration_ms: self.duration_ms,
-            target: self.target_gain,
+impl Default for DuckingProfile {
+    fn default() -> Self {
+        Self {
+            curve: DuckingCurve::Exponential,
+            duration_ms: 300,
+            target: Self::FULL_MUTE,
         }
     }
 }
@@ -101,7 +89,7 @@ impl AcousticProfile {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ZoneDuckingRule {
     pub zone_id: String,
-    pub ducking_config: PlaybookDuckingConfig,
+    pub ducking_profile: DuckingProfile,
     pub paging_gain_db: f32,
     pub bypass_mute: bool,
 }
@@ -111,8 +99,8 @@ pub struct ZoneDuckingRule {
 pub struct PagingDuckingPlaybook {
     pub name: String,
     pub trigger: TriggerPattern,
-    /// Default ducking configuration applied across the main mix.
-    pub default_ducking: PlaybookDuckingConfig,
+    /// Default ducking profile applied across the main mix.
+    pub default_ducking: DuckingProfile,
     pub hold_time_ms: u64,
     pub zone_rules: Vec<ZoneDuckingRule>,
     pub explanation: String,
@@ -165,8 +153,8 @@ impl PlaybookStore {
         if let Some(ac) = acoustic {
             if ac.is_loud_environment() && matched.trigger != TriggerPattern::EmergencyOverride {
                 // If loud crowd, deepen ducking from e.g. -18dB (0.125) to -24dB (0.063) to ensure intelligibility
-                matched.default_ducking.target_gain =
-                    (matched.default_ducking.target_gain * 0.5).clamp(0.0, 1.0);
+                matched.default_ducking.target =
+                    (matched.default_ducking.target * 0.5).clamp(0.0, 1.0);
                 matched.explanation = format!(
                     "{} [Adjusted for high ambient noise: {:.1}dB SPL]",
                     matched.explanation, ac.ambient_spl_db
@@ -182,7 +170,7 @@ impl PlaybookStore {
         self.playbooks.push(PagingDuckingPlaybook {
             name: "EmergencyOverrideFullMute".into(),
             trigger: TriggerPattern::EmergencyOverride,
-            default_ducking: PlaybookDuckingConfig::new(
+            default_ducking: DuckingProfile::new(
                 DuckingCurve::Instant,
                 100,
                 DuckingProfile::FULL_MUTE,
@@ -196,7 +184,7 @@ impl PlaybookStore {
         self.playbooks.push(PagingDuckingPlaybook {
             name: "PriorityRfPagingCurve".into(),
             trigger: TriggerPattern::PriorityRfPaging,
-            default_ducking: PlaybookDuckingConfig::new(
+            default_ducking: DuckingProfile::new(
                 DuckingCurve::Exponential,
                 300,
                 0.1, // -20 dB attenuation
@@ -210,7 +198,7 @@ impl PlaybookStore {
         self.playbooks.push(PagingDuckingPlaybook {
             name: "IntercomAlertCurve".into(),
             trigger: TriggerPattern::IntercomAlert,
-            default_ducking: PlaybookDuckingConfig::new(
+            default_ducking: DuckingProfile::new(
                 DuckingCurve::Linear,
                 400,
                 0.125, // -18 dB attenuation
