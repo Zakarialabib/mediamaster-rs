@@ -1,0 +1,22 @@
+[package]
+name = "mediamaster-rag"
+version = "0.1.0"
+description = "Acoustic profiles, codec matrix & sensor-context knowledge store for mediamaster-rs"
+authors = ["SignageMaster Team <team@signage-master.example.com>"]
+edition = "2021"
+rust-version = "1.95"
+license = "Apache-2.0"
+repository = "https://github.com/Zakarialabib/mediamaster-rs"
+keywords = ["rag", "codec", "audio", "sensors", "knowledge-base"]
+
+[dependencies]
+mediamaster-core = { path = "../mediamaster-core", version = "0.3.0", features = ["serde-sync"] }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+mediamaster-audio = { path = "../mediamaster-audio", version = "0.2.0" }
+
+[lib]
+name = "mediamaster_rag"
+path = "src/lib.rs"
