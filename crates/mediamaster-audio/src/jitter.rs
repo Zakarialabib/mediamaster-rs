@@ -77,7 +77,8 @@ impl PagingJitterBuffer {
             // If full, drop one sample to make room (never allocate).
             if self.ring.len() == self.ring.capacity() {
                 let _ = self.ring.pop();
-                self.read_frac = (self.ring.len() as f64) * TARGET_FILL / CAPACITY as f64;
+                // Advance the read cursor by one sample (clamped to ring length).
+                self.read_frac = (self.read_frac + 1.0).min(self.ring.len() as f64);
             }
             let _ = self.ring.push(s);
             self.last_sample = s;
@@ -155,20 +156,13 @@ impl PagingJitterBuffer {
         // Drain one resampled point (4-point Hermite around the read cursor).
         let base = self.read_frac.floor() as usize;
         let t = self.read_frac - base as f64;
-        let idx = |i: usize| -> f64 {
-            let len = CAPACITY;
-            let p = i % len.max(1);
-            // Read the ring's logical content starting at its own read cursor.
-            let n = len;
-            let _ = n;
-            // Map absolute position onto the ring's current window.
-            let pos = p % (self.len().max(1));
-            self.peek(pos) as f64
-        };
-        let y1 = idx(base);
-        let y2 = idx(base + 1);
-        let y0 = idx(base.wrapping_sub(1));
-        let y3 = idx(base + 2);
+        // Clamp boundary samples so we never wrap around the ring.
+        let ring_len = self.len().max(1);
+        let clamp = |i: usize| -> usize { i.min(ring_len.saturating_sub(1)) };
+        let y0 = self.peek(clamp(base.saturating_sub(1))) as f64;
+        let y1 = self.peek(clamp(base)) as f64;
+        let y2 = self.peek(clamp(base + 1)) as f64;
+        let y3 = self.peek(clamp(base + 2)) as f64;
         let out = Self::hermite(t, y0, y1, y2, y3);
 
         // Advance by the drift-corrected step; pop whole samples we passed.

@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 
 use tokio::sync::broadcast::error::RecvError;
 
-use mediamaster_audio::ducking::{DuckingCurve, DuckingProfile};
+use mediamaster_audio::ducking::AutomationCommand;
 use mediamaster_bus::EventBus;
 use mediamaster_core::events::HardwareEvent;
 use mediamaster_core::types::{RadioBurst, RoomState};
@@ -31,9 +31,9 @@ fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 ///
 /// Routing:
 /// - [`AudioDuckRequest`](HardwareEvent::AudioDuckRequest) →
-///   [`AudioBridge::set_ducking_profile`], easing the mixer gain over `until`
-///   milliseconds to the `ducking` target (the `source` name is informational;
-///   the mixer ducks globally).
+///   [`AudioBridge::push_automation`], building an [`mediamaster_audio::ducking::AutomationCommand`]
+///   and easing the mixer gain per-sample via the lock-free IIR smoother
+///   (the `source` name is informational; the mixer ducks globally).
 /// - [`SensorContextChange`](HardwareEvent::SensorContextChange) → recorded as
 ///   the latest [`RoomState`] (see [`Self::last_room_state`]).
 /// - [`RadioBurstDetected`](HardwareEvent::RadioBurstDetected) → recorded as
@@ -62,13 +62,13 @@ impl EventHandlers {
     pub fn handle_event(&self, event: &HardwareEvent) {
         match event {
             HardwareEvent::AudioDuckRequest { ducking, until, .. } => {
-                // `until` is treated as the duck duration in milliseconds (the
-                // bus carries no clock). Exponential decay matches the mixer's
-                // default smooth curve.
-                self.audio.set_ducking_profile(DuckingProfile {
-                    curve: DuckingCurve::Exponential,
-                    duration_ms: *until,
-                    target: *ducking,
+                // Lock-free path: build an AutomationCommand and push it to
+                // the mixer's per-sample IIR smoother. No mutex on the render
+                // thread, no heap, no `.await`.
+                let coeff = AutomationCommand::coeff_for(*until as u32, 48_000);
+                self.audio.push_automation(AutomationCommand::DuckStart {
+                    target_gain: *ducking,
+                    coeff,
                 });
             }
             HardwareEvent::SensorContextChange { state } => {
@@ -121,7 +121,23 @@ mod tests {
 
     #[test]
     fn duck_request_eases_mixer_gain() {
+        use mediamaster_core::traits::AudioSource;
+
+        struct ConstSrc;
+        impl AudioSource for ConstSrc {
+            fn read_pcm(&self, buffer: &mut [f32]) -> usize {
+                for s in buffer.iter_mut() {
+                    *s = 1.0;
+                }
+                buffer.len()
+            }
+            fn label(&self) -> &str {
+                "const"
+            }
+        }
+
         let audio = Arc::new(AudioBridge::new());
+        audio.mixer().lock().unwrap().add_source(Box::new(ConstSrc));
         let handlers = EventHandlers::new(audio.clone());
         assert_eq!(audio.mixer().lock().unwrap().ducking(), 1.0);
 
@@ -130,9 +146,9 @@ mod tests {
             ducking: 0.0,
             until: 5_000,
         });
-        std::thread::sleep(std::time::Duration::from_millis(10));
+        let _ = audio.mixer().lock().unwrap().mix();
         assert!(
-            audio.mixer().lock().unwrap().ducking() < 1.0,
+            audio.mixer().lock().unwrap().iir_gain() < 1.0,
             "duck request must ease the mixer gain"
         );
     }

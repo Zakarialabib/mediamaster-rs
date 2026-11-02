@@ -75,6 +75,22 @@ impl AudioBridge {
         &self.mixer
     }
 
+    /// Queue an [] for per-sample branchless IIR gain
+    /// smoothing. The async plane builds + pushes these; the render thread
+    /// steps them sample-by-sample in  — no mutex, no heap, no
+    ///  on the audio callback.
+    pub fn push_automation(&self, cmd: mediamaster_audio::ducking::AutomationCommand) {
+        self.mixer
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .push_automation(cmd);
+    }
+
+    /// Release the duck back to full volume via the lock-free IIR path.
+    pub fn release_automation(&self, coeff: f32) {
+        self.push_automation(mediamaster_audio::ducking::AutomationCommand::DuckRelease { coeff });
+    }
+
     /// Apply a smooth ducking transition — e.g. from a `HardwareEvent::
     /// AudioDuckRequest` on the `EventBus`: the app builds the profile and
     /// hands it to the mixer, which eases the gain over `duration_ms`.
