@@ -29,3 +29,5 @@ thiserror = { workspace = true, optional = true }
 # Tests only: `#[tokio::test]` + spawn + sleep. The library itself stays on
 # `sync`/`macros` (the `run` loop just awaits a broadcast receiver).
 tokio = { workspace = true, features = ["rt", "time", "macros", "sync"] }
+
+serde_json = "1"

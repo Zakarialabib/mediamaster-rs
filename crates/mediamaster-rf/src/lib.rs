@@ -9,6 +9,9 @@ pub mod iq_source;
 pub mod parser;
 pub mod pipeline;
 
+#[cfg(feature = "rtl-sdr")]
+pub mod rtlsdr;
+
 pub use demod::OokDemodulator;
 pub use detector::MagnitudeDetector;
 pub use iq_source::{IqSample, IqSource};

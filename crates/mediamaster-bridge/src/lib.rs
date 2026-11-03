@@ -44,6 +44,7 @@
 //! ```
 
 pub mod audio;
+pub mod device;
 pub mod events;
 pub mod rf;
 pub mod sensors;
