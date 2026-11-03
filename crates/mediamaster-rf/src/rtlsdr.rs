@@ -35,7 +35,11 @@ pub struct RtlSdrSource {
 impl RtlSdrSource {
     /// Open the RTL-SDR at `device_index`, set `center_freq_hz` and
     /// `sample_rate_hz`.
-    pub fn new(device_index: usize, center_freq_hz: u32, sample_rate_hz: u32) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn new(
+        device_index: usize,
+        center_freq_hz: u32,
+        sample_rate_hz: u32,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         // Open, configure, and immediately close the device to enumerate
         // capabilities (hardware is re-opened per acquire).
         let _cfg = rtlsdr::open(device_index.try_into().map_err(|e| {
@@ -43,8 +47,11 @@ impl RtlSdrSource {
             let errstr = format!("RTL-SDR error: {} ({})", e.errstr, e.errno);
             let errno = e.errno;
             let _ = errstr; // NOTE: field names are private; this constructs via Display below.
-            // Construct the error via the private `rtlsdr_error` helper.
-            rtlsdr::rtlsdr_error(errno as libc::c_int, errstr.as_ptr() as *const std::ffi::c_void)
+                            // Construct the error via the private `rtlsdr_error` helper.
+            rtlsdr::rtlsdr_error(
+                errno as libc::c_int,
+                errstr.as_ptr() as *const std::ffi::c_void,
+            )
         })?)?;
         Ok(Self {
             device_index,
@@ -64,10 +71,17 @@ impl IqSource for RtlSdrSource {
         // Open, read, and close on each acquisition. This keeps the struct
         // `Send + Sync` (the underlying `RTLSDRDevice` is a raw FFI pointer).
         spawn_blocking(move || {
-            let mut device = rtlsdr::open(self.device_index.try_into().unwrap()).expect("rtlsdr open");
-            device.set_center_freq(self.center_freq_hz).expect("set_center_freq");
-            device.set_sample_rate(self.sample_rate_hz).expect("set_sample_rate");
-            device.set_tuner_gain_mode(false).expect("set_tuner_gain_mode");
+            let mut device =
+                rtlsdr::open(self.device_index.try_into().unwrap()).expect("rtlsdr open");
+            device
+                .set_center_freq(self.center_freq_hz)
+                .expect("set_center_freq");
+            device
+                .set_sample_rate(self.sample_rate_hz)
+                .expect("set_sample_rate");
+            device
+                .set_tuner_gain_mode(false)
+                .expect("set_tuner_gain_mode");
             device.set_tuner_gain(-10).expect("set_tuner_gain");
 
             let mut buf = vec![0f32; count * 2];

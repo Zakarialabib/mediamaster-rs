@@ -18,7 +18,7 @@ mediamaster-rs workspace. It provides:
 
 ## Crate graph
 
-```
+```text
 mediamaster-rag (0.1.0)
 └── mediamaster-core (0.3.0, +serde-sync feature)
 ```
@@ -28,10 +28,11 @@ mediamaster-rag (0.1.0)
 ```rust
 use mediamaster_rag::MediamasterRagFacade;
 
-// Construct the facade and query the codec corpus
-let rag = MediamasterRagFacade::new();
+let mut rag = MediamasterRagFacade::new();
+rag.insert_codec_profile("h264_1080p", 1080, 1920, 1080, "H264", "high");
+rag.insert_scene_record("room_101", vec![25.1, 45.0], 120);
 ```
 
-## License
+## Publishing
 
-Apache-2.0 (see `LICENSE`).
+Published to crates.io: [`mediamaster-rag`](https://crates.io/crates/mediamaster-rag) v0.1.0.

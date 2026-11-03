@@ -99,7 +99,12 @@ impl Mixer {
 
     /// Enable the anti-click jitter buffer for a live paging stream.
     pub fn enable_paging_jitter(&mut self, sample_rate: u32, prebuffer_ms: u32) {
-        unsafe { *self.jitter.get() = Some(crate::jitter::PagingJitterBuffer::new(sample_rate, prebuffer_ms)) };
+        unsafe {
+            *self.jitter.get() = Some(crate::jitter::PagingJitterBuffer::new(
+                sample_rate,
+                prebuffer_ms,
+            ))
+        };
     }
 
     /// Disable the paging jitter buffer.
@@ -381,5 +386,4 @@ mod tests {
         // No panic when pushing to disabled jitter.
         mixer.push_paging_pcm(&[0.5; 10]);
     }
-
 }

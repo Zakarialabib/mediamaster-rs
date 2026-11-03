@@ -1,119 +1,86 @@
-![CI](https://github.com/Zakarialabib/mediamaster-rs/actions/workflows/ci.yml/badge.svg)
-![crates.io](https://img.shields.io/crates/v/mediamaster-core)
-![crates.io](https://img.shields.io/crates/v/mediamaster-audio)
-![crates.io](https://img.shields.io/crates/v/mediamaster-rf)
-![crates.io](https://img.shields.io/crates/v/mediamaster-sensors)
-![crates.io](https://img.shields.io/crates/v/mediamaster-bridge)
+# Mediamaster Rust — SignageMaster Backend
 
-# mediamaster-rs
+A Rust workspace (Tauri+Vue frontend is separate) of zero-FFmpeg, async-native crates for a
+signage broadcasting system. One Rust workspace, many published crates — each with its own
+crates.io package and version.
 
-> Shared hardware media vocabulary for Rust signage & streamer apps.
-
-`mediamaster-rs` is a small workspace of **orthogonal, runtime-free-core** Rust
-crates that share one vocabulary. Each crate solves a single domain. Nothing
-here is a UI, a launcher, or a hardware driver — it is the vocabulary that the
-desktop call app and the phone companion app share.
-
-## Workspace layout
-
-```text
+```
 mediamaster-rs/
-├── Cargo.toml
-└── crates/
-    ├── mediamaster-core/             # shared event bus, traits, types, CapsMatrix
-    ├── mediamaster-audio/            # PCM mixing, ducking, zones, cpal sink
-    ├── mediamaster-rf/               # SDR IQ pipeline, FFT, OOK demod, parsing
-    ├── mediamaster-sensors/          # sensor polling, debouncing, context fusion
-    ├── mediamaster-bridge/           # app-integration facade (unpublished)
-    ├── mediamaster-probe/            # pure-Rust container & bitstream inspector
-    ├── mediamaster-codec/            # CapsMatrix consumption, HW slot budgets, MF/NDK
-    ├── mediamaster-agent/            # live paging & sensor ducking reconciliation loop
-    ├── mediamaster-rag/              # acoustic profiles, codec matrix & sensor-context knowledge store
-    ├── mediamaster-engine/           # AudioBus, TranscodePlan, EngineSelector coordination layer
-    └── mediamaster-integration-tests # cross-crate tests (unpublished)
+├── Cargo.toml                       # workspace manifest (members = crates/*)
+├── rust-toolchain.toml              # pinned Rust 1.95 + rustfmt + clippy
+├── README.md                        # this file (workspace overview)
+├── CHANGELOG.md                     # version history
+├── docs/
+│   ├── RELEASE.md                   # coordinated publish workflow (reference)
+│   └── MIGRATION.md                 # 0.2.0 → 0.3.0 breaking changes
+└── crates/                          # 11 workspace members (see below)
 ```
 
 ## Crate matrix
 
-| Crate | Purpose | Key dependencies |
-|-------|---------|------------------|
-| `mediamaster-core` | Shared event bus, traits, types, CapsMatrix | `serde`, `thiserror` (no tokio, no_std) |
-| `mediamaster-bus` | Async `EventBus` (tokio broadcast) + `EventPublisher` trait | `tokio` |
-| `mediamaster-audio` | Lock-free PCM mixing, ducking, zones, routing | `mediamaster-core`, `ringbuf`; optional `cpal` (`audio-cpal`) |
-| `mediamaster-rf` | SDR IQ pipeline, FFT detection, OOK demod, protocol parsing | `mediamaster-core`, `rustfft`, `nom`, `num-complex` |
-| `mediamaster-sensors` | Async sensor polling, debouncing, context fusion | `mediamaster-core`, `tokio`; optional `embedded-hal-async` (`hw`) |
-| `mediamaster-bridge` | Unified facade for external apps + `EventBus` routing | `mediamaster-core`, `mediamaster-audio`, `mediamaster-rf`, `mediamaster-sensors` |
-| `mediamaster-probe` | Pure-Rust container & bitstream header inspector (MP4/MKV/WebM) | `thiserror` |
-| `mediamaster-codec` | CapsMatrix consumption, HW slot budgets, MF/NDK actor scaffolds | `mediamaster-core` |
-| `mediamaster-agent` | Live paging & sensor ducking reconciliation loop | `mediamaster-core`, `-bus`, `-audio`, `-sensors`, `-rf`, `-bridge` |
-| `mediamaster-rag` | Acoustic profiles, codec matrix & sensor-context knowledge store | `mediamaster-core` |
-| `mediamaster-engine` | AudioBus, TranscodePlan, EngineSelector coordination layer | `mediamaster-core`, `-bus`, `-codec`, `-audio`, `ringbuf` |
+| Crate | Package | Version | Published | Purpose |
+|---|---|---|---|---|
+| `mediamaster-core` | `mediamaster-core` | 0.3.0 | ✅ | Pure Rust, `#![no_std]`+`alloc`, `EventBus` relocated, `CapsMatrix` vocabulary, `RoomState::EmergencyOverride` |
+| `mediamaster-bus` | `mediamaster-bus` | 0.3.0 | ✅ | `EventBus` (`tokio::sync::broadcast`) — the unified app event bus |
+| `mediamaster-probe` | `mediamaster-probe` | 0.3.0 | ✅ | Zero-FFmpeg container & bitstream header inspector (MP4, MKV, WebM) |
+| `mediamaster-codec` | `mediamaster-codec` | 0.3.0 | ✅ (portable) | Capability-aware codec slotting, `CapsMatrix`, `DegradationTier` fallback |
+| `mediamaster-audio` | `mediamaster-audio` | 0.3.0 | ✅ | Typed audio zones, `DuckingProfile`, `PagingJitterBuffer` (live paging) |
+| `mediamaster-agent` | `mediamaster-agent` | 0.3.0 | ✅ | Live Paging & Sensor Ducking Loop — control plane |
+| `mediamaster-engine` | `mediamaster-engine` | 0.3.0 | ✅ | Coordination layer: `AudioBus`, `TranscodePlan`, `EngineSelector` |
+| `mediamaster-rag` | `mediamaster-rag` | 0.1.0 | ✅ | Acoustic profiles, codec matrix, sensor-context knowledge store |
+| `mediamaster-rf` | `mediamaster-rf` | 0.2.0 | ✅ (pub. only) | OOK/ASK demodulator, 3-stage pipeline, real parser |
+| `mediamaster-sensors` | `mediamaster-sensors` | 0.2.0 | ✅ | Sensor reading, debounce, fusion context, hardware (`hw`) backends |
+| `mediamaster-bridge` | `mediamaster-bridge` | 0.1.0 | ✅ | App-integration facade: `AudioBridge`, `SensorBridge`, `RfBridge`, enumerators, event bus |
 
-`mediamaster-bridge` and `mediamaster-integration-tests` are `publish = false`
-— they exist for the in-repo apps/tests and are not released to crates.io.
+## Native codec actors (scaffolded, device-validation-pending)
 
-## Crates.io
+`mediamaster-codec` ships feature-gated native actors behind two optional features:
 
-| Crate | Version |
-|-------|---------|
-| [mediamaster-core](https://crates.io/crates/mediamaster-core) | ![0.3.0](https://img.shields.io/crates/v/mediamaster-core) |
-| [mediamaster-bus](https://crates.io/crates/mediamaster-bus) | ![0.3.0](https://img.shields.io/crates/v/mediamaster-bus) |
-| [mediamaster-audio](https://crates.io/crates/mediamaster-audio) | ![0.2.0](https://img.shields.io/crates/v/mediamaster-audio) |
-| [mediamaster-rf](https://crates.io/crates/mediamaster-rf) | ![0.2.0](https://img.shields.io/crates/v/mediamaster-rf) |
-| [mediamaster-sensors](https://crates.io/crates/mediamaster-sensors) | ![0.2.0](https://img.shields.io/crates/v/mediamaster-sensors) |
-| [mediamaster-bridge](https://crates.io/crates/mediamaster-bridge) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-bridge) |
-| [mediamaster-probe](https://crates.io/crates/mediamaster-probe) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-probe) |
-| [mediamaster-codec](https://crates.io/crates/mediamaster-codec) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-codec) |
-| [mediamaster-agent](https://crates.io/crates/mediamaster-agent) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-agent) |
-| [mediamaster-rag](https://crates.io/crates/mediamaster-rag) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-rag) |
-| [mediamaster-engine](https://crates.io/crates/mediamaster-engine) | ![0.1.0](https://img.shields.io/crates/v/mediamaster-engine) |
+* `mf` → Windows Media Foundation (COM, `windows 0.62`, `Win32_Media_MediaFoundation` + `Win32_System_Threading`)
+* `mediacodec` → Android MediaCodec NDK (`ndk-context` + `ndk`)
 
-The 0.2.0 release is live on crates.io — see [`docs/RELEASE.md`](docs/RELEASE.md). The `0.3.0` expansion (probe, codec, agent) is shipping next; see [`docs/RELEASE.md`](docs/RELEASE.md) for the coordinated publish plan.
+These require a Windows/Android device to validate. They are **not** published to crates.io
+(they use `windows`/`ndk-sys` which only build on their target platforms). See
+[docs/RELEASE.md](docs/RELEASE.md) for the coordinated 0.3.0 publish plan.
 
-"
+## Toolchain
 
-## How an app uses these crates
-
-Each crate is a **trait library**. The app (a Tauri desktop player, an Android
-phone app, or any host) implements the traits on its hardware adapters and wires
-the crates together. Nothing in this workspace is tied to one application.
-
-```text
-┌─ Desktop call app (Tauri) ────────────────┬─ Phone companion (Android) ─┐
-│  impl `AudioSource` for TV audio          │  show signage frames        │
-│  impl `AsyncSensor` for motion/light      │  subscribe to events        │
-│  call `Mixer::mix()` every frame          │  render signage             │
-│  run `EventHandlers::run(bus)` to route   │                             │
-└───────────────────────────────────────────┴─────────────────────────────┘
+```bash
+cargo fmt --check        # must be clean
+cargo clippy --workspace --all-targets -- -D warnings   # must be 0 errors
+cargo test --workspace                              # all tests green
 ```
 
-## Integration pattern
+## Directory layout
 
-```rust
-use mediamaster_core::traits::{AudioSource, AsyncSensor};
-use mediamaster_audio::Mixer;
-use mediamaster_sensors::FusionEngine;
-
-// 1. Implement the traits on your host (the app's hardware adapters).
-//    The crates are *pure*: no hardware handling inside mediamaster-rs itself.
-
-// 2. Combine them in your application.
-let mut engine = FusionEngine::new();
-let mut mixer = Mixer::new();
+```
+crates/
+├── mediamaster-core/     # pure Rust types + EventBus
+├── mediamaster-bus/      # EventBus (tokio broadcast)
+├── mediamaster-probe/    # container/head inspect
+├── mediamaster-codec/    # codec slotting + caps matrix
+├── mediamaster-audio/    # zones, ducking, jitter buffer
+├── mediamaster-agent/    # live paging + sensor ducking loop
+├── mediamaster-engine/   # AudioBus, TranscodePlan, EngineSelector
+├── mediamaster-rag/      # acoustic models + knowledge store
+├── mediamaster-rf/       # RF demod + pipeline
+├── mediamaster-sensors/  # readings, debounce, fusion, hw backends
+└── mediamaster-bridge/   # provenance facade
 ```
 
-## Design principles
+## Publishing (reference)
 
-- **No runtime dependency** in `core` beyond `tokio` + `serde` + `thiserror`.
-- **Zero-alloc hot paths**: `AudioSource::read_pcm` writes into a caller-supplied buffer.
-- **`async fn` in traits** throughout (Rust 1.75+ native).
-- **Priority-ordered** sensor fusion (motion > proximity > light) so map iteration order never affects output.
-- **App-owned wiring**: the `EventBus` loop and hardware live in the app; the crates expose traits + facades.
+See [docs/RELEASE.md](docs/RELEASE.md). In short:
 
-## Docs
+1. `cargo check --workspace` — must be clean
+2. `cargo fmt --check` — must pass
+3. `cargo clippy --workspace --all-targets -- -D warnings` — must pass with 0 errors
+4. `cargo test --workspace` — all tests green
+5. Bump versions, commit, `cargo publish -p <crate>` (dry-run first)
+6. Tag and push
 
-- [architecture.md](docs/architecture.md) — crate-by-crate architecture
-- [masteraudio-rs.md](docs/masteraudio-rs.md) — design notes & backlog
-- [RELEASE.md](docs/RELEASE.md) — release & crates.io publishing plan
-- [MEDIA-SCOPE-SPEC.md](docs/MEDIA-SCOPE-SPEC.md) — spec for the future `media-scope` extraction
-- [CHANGELOG.md](CHANGELOG.md) — release history
+## Contributing
+
+- `cargo fmt --check` must pass with zero warnings
+- All new crates get a `README.md` in their directory
+- Branch → PR → merge workflow (see `.github/workflows/ci.yml`)

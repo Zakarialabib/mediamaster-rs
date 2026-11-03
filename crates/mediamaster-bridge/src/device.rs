@@ -139,6 +139,12 @@ impl DeviceRegistryImpl {
     }
 }
 
+impl Default for DeviceRegistryImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DeviceRegistry for DeviceRegistryImpl {
     fn enumerate_devices(&self) -> Vec<DeviceInfo> {
         let mut out = Vec::new();
@@ -152,6 +158,13 @@ impl DeviceRegistry for DeviceRegistryImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct DummyRegistry;
+    impl DeviceRegistry for DummyRegistry {
+        fn enumerate_devices(&self) -> Vec<DeviceInfo> {
+            vec![DeviceInfo::new("dummy", "dummy device", true, &["test"])]
+        }
+    }
 
     #[test]
     fn device_info_serializes() {
@@ -168,12 +181,5 @@ mod tests {
         reg.add(DummyRegistry);
         let devices = reg.enumerate_devices();
         assert_eq!(devices.len(), 2);
-    }
-}
-
-struct DummyRegistry;
-impl DeviceRegistry for DummyRegistry {
-    fn enumerate_devices(&self) -> Vec<DeviceInfo> {
-        vec![DeviceInfo::new("dummy", "dummy device", true, &["test"])]
     }
 }

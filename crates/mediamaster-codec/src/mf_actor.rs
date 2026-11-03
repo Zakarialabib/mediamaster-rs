@@ -99,11 +99,14 @@ where
                     // MFStartup + IMFSourceReader / MFT enumeration go here.
                     // `guard` is live across this call so its Drop runs after
                     // any MFShutdown if initialisation fails.
-                    let _ = on_event(MfRuntimeToken(true), &mut MfRuntimeGuard {
-                        source_reader: None,
-                        sink_writer: None,
-                        transform: None,
-                    });
+                    let _ = on_event(
+                        MfRuntimeToken(true),
+                        &mut MfRuntimeGuard {
+                            source_reader: None,
+                            sink_writer: None,
+                            transform: None,
+                        },
+                    );
                 }
                 _ => {}
             }
@@ -126,8 +129,5 @@ pub struct MfConfig {
 
 /// Application-visible hook that runs per actor tick. Returns `Ok(())` on
 /// success or `Err` to abort the actor.
-pub type MfEventHandler = for<'a> fn(
-    MfRuntimeToken,
-    &'a mut MfRuntimeGuard,
-    &mut MfConfig,
-) -> std::io::Result<()>;
+pub type MfEventHandler =
+    for<'a> fn(MfRuntimeToken, &'a mut MfRuntimeGuard, &mut MfConfig) -> std::io::Result<()>;

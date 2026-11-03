@@ -12,9 +12,8 @@ protocol parsing.
   recovers a byte stream from I/Q by averaging the envelope over
   `samples_per_symbol` and slicing against a threshold.
 - `ProtocolParser` — `nom` combinators for sync word → header → payload.
-- `Pipeline` — three-stage async pipeline (acquisition → DSP → demod/parse)
-  driven by the caller's tokio runtime; publishes `RadioBurstDetected` to the
-  `EventBus`. `AcquisitionStage` is its stage-1 facade.
+- `Pipeline` — three-stage async pipeline (acquisition → DSP → demod/parse) driven by
+  the caller's tokio runtime; publishes `RadioBurstDetected` to the `EventBus`.
 
 ## Data flow
 
@@ -28,26 +27,18 @@ IqSource → acquire() ──▶ AcquisitionStage::run()   (stage 1)
 IqBatch (loop)         MagnitudeDetector::detect() → Signal   (stage 2)
    │                               │
    ▼                               ▼
-OokDemodulator::demodulate() → ProtocolParser::parse_sync()   (stage 3)
-   │                               │
-   ▼                               ▼
-byte stream             emit RadioBurstDetected to EventBus
+   └──────▶ Pipeline::run() (stage 3: demod + parse) ──┘
 ```
 
-## Usage
+## Feature flags
 
-```rust
-use mediamaster_rf::{MagnitudeDetector, OokDemodulator, ProtocolParser};
-use mediamaster_core::traits::SignalDetector;
+- `rtl-sdr` — RTL-SDR backend (via the `rtlsdr` crate). **NOTE**: This feature is
+  currently **abandoned** — the upstream `rtlsdr 0.1.4` crate's API does not match the
+  expected signature, and no compatible async version is available. The `Pipeline` and
+  demodulator are feature-complete but do not compile with `rtl-sdr`.
+- `std` (default) — includes `std` support.
+- `alloc` — `no_std` + `alloc` builds.
 
-// Peak detection: only magnitudes above the threshold count as signals.
-let detector = MagnitudeDetector::new(256, 0.5);
-let magnitudes = vec![0.1, 0.8, 0.3, 0.9];
-let mut signals = Vec::new();
-let peaks = detector.detect(&magnitudes, &mut signals);
-// peaks == 2, signals[0].id == "1", signals[1].id == "3"
+## Publishing
 
-// OOK demodulation: recover bytes from I/Q samples.
-let demod = OokDemodulator::new(0.5, 4);
-// demod.demodulate(&samples) -> Vec<u8>
-```
+Published to crates.io: [`mediamaster-rf`](https://crates.io/crates/mediamaster-rf) v0.2.0.
