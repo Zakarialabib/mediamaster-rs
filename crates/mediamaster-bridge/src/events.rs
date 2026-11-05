@@ -81,7 +81,10 @@ impl EventHandlers {
             | HardwareEvent::CctvMotionDetected { .. }
             | HardwareEvent::EnvironmentalDrift { .. }
             | HardwareEvent::PosterGenerated { .. }
-            | HardwareEvent::EvictionPlanned { .. } => {}
+            | HardwareEvent::EvictionPlanned { .. }
+            | HardwareEvent::SlotRevoked { .. }
+            | HardwareEvent::StarvationDetected { .. }
+            | HardwareEvent::DecodeHeartbeat { .. } => {}
         }
     }
 

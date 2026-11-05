@@ -11,8 +11,11 @@ keywords = ["rag", "codec", "audio", "sensors", "knowledge-base"]
 
 [dependencies]
 mediamaster-core = { path = "../mediamaster-core", version = "0.3.0", features = ["serde-sync"] }
+mediamaster-codec = { path = "../mediamaster-codec", version = "0.3.0" }
 serde = { workspace = true }
+serde_json = "1"
 thiserror = { workspace = true }
+toml = "0.8"
 
 [dev-dependencies]
 mediamaster-audio = { path = "../mediamaster-audio", version = "0.3.0" }

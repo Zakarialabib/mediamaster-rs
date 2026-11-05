@@ -21,7 +21,10 @@ pub mod provisioning;
 pub mod traits;
 pub mod types;
 
-pub use caps::{CapsMatrix, Codec, CodecCaps, DegradationTier, PixelFormat};
+pub use caps::{
+    CapabilityVerdict, CapsMatrix, Codec, CodecCaps, DegradationTier, ObservedCodecCaps,
+    PixelFormat,
+};
 pub use error::MediamasterError;
 pub use events::{EventPublisher, HardwareEvent};
 pub use policy::{BackdropPolicy, BackdropSelect, EvictOrder, RetentionPolicy};

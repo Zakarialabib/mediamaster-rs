@@ -194,6 +194,11 @@ impl Agent {
                     *rf_burst_frequency,
                 );
             }
+            HardwareEvent::SlotRevoked { .. }
+            | HardwareEvent::StarvationDetected { .. }
+            | HardwareEvent::DecodeHeartbeat { .. } => {
+                // Codec telemetry events are consumed by TelemetryIngest in mediamaster-rag.
+            }
         }
         Ok(())
     }
