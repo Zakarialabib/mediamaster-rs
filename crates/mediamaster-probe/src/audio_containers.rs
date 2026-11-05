@@ -221,9 +221,8 @@ pub fn probe_adts(data: &[u8]) -> Result<MediaDescriptor, ProbeError> {
         }
     };
 
-    let frame_length = ((data[3] as usize & 0x03) << 11)
-        | ((data[4] as usize) << 3)
-        | ((data[5] as usize) >> 5);
+    let frame_length =
+        ((data[3] as usize & 0x03) << 11) | ((data[4] as usize) << 3) | ((data[5] as usize) >> 5);
 
     if frame_length < 7 {
         return Err(ProbeError::malformed("adts", "invalid frame length"));
