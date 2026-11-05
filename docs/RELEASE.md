@@ -145,4 +145,3 @@ Immediately after publishing, run the scratch project smoke test script to verif
 - `AsyncSensor` relocation: `mediamaster-core::traits::AsyncSensor` is deprecated in 0.3.x and will be removed in 0.4.0. Consumers must migrate to `mediamaster-sensors::AsyncSensor`.
 - `mediamaster-sensors` bump: `mediamaster-sensors` introduces `SimulatedSensorStream` and uniform `AsyncSensor` implementations across hardware backends (`hw.rs`).
 - `mediamaster-agent` pipeline activation: `FusionOutputDriver` and TOML-loadable `AutomationRule` DSL provide active sensor-to-mixer/zones control.
-

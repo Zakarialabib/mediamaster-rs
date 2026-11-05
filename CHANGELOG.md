@@ -11,14 +11,7 @@
 - **mediamaster-agent** (`0.3.0`, new crate): Live Paging & Sensor Ducking Loop — subscribes to the shared `EventBus` and commands `mediamaster-audio::Mixer` on `RoomState::EmergencyOverride` / live `RadioBurstDetected`. Unites `mediamaster-audio`, `mediamaster-sensors`, `mediamaster-rf`.
 - **mediamaster-rag** (`0.1.0`, new crate): Acoustic profiles, codec matrix & sensor-context knowledge store — `CodecKnowledgeStore`, `SceneMemoryStore`, `PlaybookStore` for RAG-based acoustic paging and codec recommendation.
 - **mediamaster-engine** (`0.3.0`, new crate): Coordination layer — `AudioBus` (lock-free PCM ring), `TranscodePlan` (capability-decision), `EngineSelector` (backend pick: MF/NDK or software fallback).
-- **mediamaster-audio** (`0.3.0`): production-grade audio source layer:
-  - `PcmFileSource`: Symphonia-backed decoded PCM streaming with loop + seek support (`decode` feature).
-  - `CallbackSource`: closure-based frame provider for embedders (mic, network, cpal capture).
-  - `ReshapingSource`: channel remapping and sample-rate resampling via `rubato` (`resample` feature).
-  - `PagingSource`: wraps `PagingJitterBuffer` as a priority zone input with automatic ducking loop integration via `EventBus`.
-  - Zero hot-path allocations and `AudioUnderrun`/`AudioOverrun` event reporting.
-  - Runnable demo `examples/paging_duck.rs`.
-- **mediamaster-core** (`0.3.0`): purified — `tokio` stripped, `EventBus` relocated to `mediamaster-bus`, `#![no_std]` + `alloc`. CapsMatrix vocabulary added: `CapsMatrix`, `Codec`, `CodecCaps`, `PixelFormat`, `DegradationTier`, `MaintenanceLease`, `MediaCapabilityBundleV1`, `MediaError` + `Remedy`. `RoomState::EmergencyOverride` added. `HardwareEvent::AudioUnderrun` and `HardwareEvent::AudioOverrun` variants added.
+- **mediamaster-core** (`0.3.0`): purified — `tokio` stripped, `EventBus` relocated to `mediamaster-bus`, `#![no_std]` + `alloc`. CapsMatrix vocabulary added: `CapsMatrix`, `Codec`, `CodecCaps`, `PixelFormat`, `DegradationTier`, `MaintenanceLease`, `MediaCapabilityBundleV1`, `MediaError` + `Remedy`. `RoomState::EmergencyOverride` added.
 - **mediamaster-bus** (`0.3.0`): `EventBus` relocated out of core into its own crate (`tokio` broadcast).
 
 ### Changed

@@ -180,6 +180,7 @@ impl Agent {
             | HardwareEvent::EvictionPlanned { .. }
             | HardwareEvent::AudioUnderrun { .. }
             | HardwareEvent::AudioOverrun { .. } => {
+            | HardwareEvent::FrameDrop { .. } => {
             }
             HardwareEvent::EnvironmentalDrift {
                 motion_density,
