@@ -28,10 +28,10 @@ pub use hls::{
     MasterPlaylistEntry, PartRecord, RenditionSpec, ResolvedRendition, Segment, SegmentKind,
     SegmentRecord, SegmentSink, TsMuxer,
 };
-#[cfg(feature = "hls")]
-pub use transcode_plan::HlsJob;
 pub use poster::{BackdropSink, EncodedPacket, PacketSource, PosterProducer};
 pub use retention::{EvictionPlan, RetainedItem, RetentionEngine};
+#[cfg(feature = "hls")]
+pub use transcode_plan::HlsJob;
 pub use transcode_plan::{Codec, Container, Profile, TranscodePlan};
 
 pub type EngineError = Box<dyn std::error::Error + Send + Sync>;

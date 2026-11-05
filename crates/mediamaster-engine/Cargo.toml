@@ -23,6 +23,9 @@ mediamaster-frame = { path = "../mediamaster-frame", version = "0.3.0", optional
 ringbuf = { version = "0.3", features = ["alloc"] }
 thiserror = { workspace = true }
 
+[dev-dependencies]
+proptest = "1.12.0"
+
 [lib]
 name = "mediamaster_engine"
 path = "src/lib.rs"
@@ -34,6 +37,3 @@ required-features = ["hls"]
 [[test]]
 name = "hls_tests"
 required-features = ["hls"]
-
-[dev-dependencies]
-proptest = "1.12.0"
