@@ -16,4 +16,10 @@ pub enum RagError {
 
     #[error("capacity exceeded: {0}")]
     CapacityExceeded(String),
+
+    #[error("serialization/format error: {0}")]
+    FormatError(String),
+
+    #[error("io error: {0}")]
+    IoError(String),
 }

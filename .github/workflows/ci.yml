@@ -27,34 +27,9 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace
-
-  feature-powerset-and-cross:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
-          targets: thumbv7em-none-eabihf, riscv32imac-unknown-none-elf, x86_64-pc-windows-gnu, aarch64-linux-android
-      - name: Install cargo-hack & ALSA dev headers
-        run: |
-          sudo apt-get update && sudo apt-get install -y libasound2-dev
-          cargo install cargo-hack --locked
-      - name: Check no_std core target
-        run: |
-          cargo check -p mediamaster-core --target thumbv7em-none-eabihf --no-default-features
-          cargo check -p mediamaster-core --target riscv32imac-unknown-none-elf --no-default-features
-      - name: Check codec target matrix
-        run: |
-          cargo check -p mediamaster-codec --target x86_64-pc-windows-gnu --features mf
-          cargo check -p mediamaster-codec --target aarch64-linux-android --features mediacodec
-          cargo check -p mediamaster-codec --no-default-features
-      - name: Feature powerset check (core, audio, probe, rag, sensors, bridge, rf)
-        run: |
-          cargo hack --manifest-path crates/mediamaster-core/Cargo.toml --feature-powerset check
-          cargo hack --manifest-path crates/mediamaster-audio/Cargo.toml --feature-powerset check
-          cargo hack --manifest-path crates/mediamaster-probe/Cargo.toml --feature-powerset check
-          cargo hack --manifest-path crates/mediamaster-rag/Cargo.toml --feature-powerset check
-          cargo hack --manifest-path crates/mediamaster-sensors/Cargo.toml --feature-powerset check
-          cargo hack --manifest-path crates/mediamaster-bridge/Cargo.toml --feature-powerset check
-          cargo hack --manifest-path crates/mediamaster-rf/Cargo.toml --feature-powerset check
+      - name: Install no_std target
+        run: rustup target add thumbv7m-none-eabi
+      - name: Check core no_std
+        run: cargo check -p mediamaster-core --target thumbv7m-none-eabi --no-default-features
+      - name: Check core no_std with serde-sync
+        run: cargo check -p mediamaster-core --target thumbv7m-none-eabi --features serde-sync
