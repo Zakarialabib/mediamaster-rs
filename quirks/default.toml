@@ -1,49 +1,99 @@
 # Known Hardware Codec Quirks and Driver Overlays
-# Schema:
-# version = "1.0"
-# description = "Fleet-wide empirical observations of SoC and GPU decoding limits"
 #
-# [[quirks]]
-# device_class = "<soc_or_gpu_family_hash>"
-# codec = "H264" | "Hevc" | "Av1" | "Vp9" | "Mpeg2"
-# max_width = <u32> (optional)
-# max_height = <u32> (optional)
-# max_fps = <u32> (optional)
-# max_concurrent_streams = <u32> (optional)
-# hw_accelerated = <bool> (optional)
-# verdict = "Confirmed" | "Borderline" | "Refuted"
-# confidence_penalty = <f32> (e.g. 0.0 to 1.0)
-# notes = "<string>"
+# PROVENANCE
+# ----------
+# This is a *seed* corpus of conservative starting points, not a verified
+# test report. Entries summarise widely-reported, real-world limitations of
+# common signage SoCs; they are deliberately conservative and are expected to
+# be refined per deployment by on-device telemetry (see `TelemetryIngest`,
+# which flips a verdict once a device class accumulates enough starvation
+# events). Every entry carries a `SEED (unverified)` note: treat the bounds as
+# "do not trust the advertised capability beyond this", never as measured
+# precision. Raising an entry to `Confirmed` requires a hardware-verified run.
+#
+# Privacy law: entries identify hardware ONLY by `device_class` (SoC/GPU family
+# hash). Never add serial numbers, network identifiers, or host names.
+#
+# Schema:
+#   version = "1.0"
+#   description = "<string>"
+#
+#   [[quirks]]
+#   device_class = "<soc_or_gpu_family_hash>"
+#   codec = "H264" | "Hevc" | "Av1" | "Vp9" | "Mpeg2" | "Aac" | "Opus" | "Mp3" | "Flac"
+#   max_width = <u32>                  (optional)
+#   max_height = <u32>                 (optional)
+#   max_fps = <u32>                    (optional)
+#   max_concurrent_streams = <u32>     (optional)
+#   hw_accelerated = <bool>            (optional)
+#   verdict = "Confirmed" | "Borderline" | "Refuted"
+#   confidence_penalty = <f32>         (0.0 ..= 1.0)
+#   notes = "<string>"
 
 version = "1.0"
-description = "Hardware driver quirks corpus for mediamaster-rs"
+description = "Seed corpus of conservative, field-reported hardware decode limits for common signage SoCs (unverified — confirm on-device)"
 
+# --- Raspberry Pi 4 Model B (BCM2711) -----------------------------------------
+# Single dedicated HEVC hardware decoder block; 4Kp60 decode is fine in
+# isolation, but a second concurrent 4K stream queues behind it. Reported
+# broadly in signage/kiosk deployments.
 [[quirks]]
-# SYNTHETIC PLACEHOLDER ENTRY 1:
-# Amlogic S905X4 vendor datasheet claims 4K60 10-bit HEVC decode, but driver starves
-# and drops frames rapidly when running more than 1 concurrent 4K stream or exceeding 1080p60.
-device_class = "amlogic-s905x4-synthetic"
+device_class = "raspberrypi-bcm2711"
 codec = "Hevc"
-max_width = 1920
-max_height = 1080
+max_width = 3840
+max_height = 2160
 max_fps = 60
 max_concurrent_streams = 1
 hw_accelerated = true
 verdict = "Borderline"
-confidence_penalty = 0.5
-notes = "SYNTHETIC: Vendor claims 4K60 HEVC multi-decode; multi-stream stalls above 1080p60."
+confidence_penalty = 0.3
+notes = "SEED (unverified): one HEVC hardware decoder instance; concurrent 4K streams starve. 4Kp60 single-stream assumed OK — confirm on-device."
 
+# --- Raspberry Pi 5 (BCM2712) -------------------------------------------------
+# The Pi 5's VideoCore VII dropped the dedicated HEVC hardware decoder that the
+# Pi 4 had. HEVC then runs on the CPU, which is not viable for continuous 4K
+# playback. Widely documented; kept as a refutation so discovery does not trust
+# an advertised HEVC HW row.
 [[quirks]]
-# SYNTHETIC PLACEHOLDER ENTRY 2:
-# Rockchip RK3588 MediaCodec driver advertises 8K30 VP9 hardware decoding, but
-# video decoder crashes or falls back to software decode at 3fps under production thermal envelope.
-device_class = "rockchip-rk3588-synthetic"
-codec = "Vp9"
+device_class = "raspberrypi-bcm2712"
+codec = "Hevc"
+max_width = 1920
+max_height = 1080
+max_fps = 30
+max_concurrent_streams = 1
+hw_accelerated = false
+verdict = "Refuted"
+confidence_penalty = 0.6
+notes = "SEED (unverified): HEVC hardware decoder removed vs BCM2711; expect CPU fallback. Treat HEVC hardware decode as unavailable."
+
+# --- Amlogic S905X4 -----------------------------------------------------------
+# Common Android TV / signage box. Reports of pipeline starvation when running
+# more than one concurrent 4K decode session, and of firmware-revision variance
+# in what the media HAL actually exposes. Constrain concurrency without
+# asserting a specific frame rate.
+[[quirks]]
+device_class = "amlogic-s905x4"
+codec = "Hevc"
 max_width = 3840
 max_height = 2160
 max_fps = 60
-max_concurrent_streams = 2
-hw_accelerated = false
-verdict = "Refuted"
-confidence_penalty = 0.85
-notes = "SYNTHETIC: 8K VP9 advertised, but driver crashes; refuted above 4K60 and hw_accelerated refuted."
+max_concurrent_streams = 1
+verdict = "Borderline"
+confidence_penalty = 0.4
+notes = "SEED (unverified): reported multi-stream 4K starvation and firmware-dependent HAL caps; clamp concurrent streams to 1 until confirmed."
+
+# --- Rockchip RK3588 ----------------------------------------------------------
+# Advertises high-resolution decode on paper; community reports thermal
+# throttling and VDPU slot exhaustion when several 4K sessions run together on
+# a fanless board. Refute the "many concurrent 4K" assumption while leaving
+# single-stream bounds open.
+[[quirks]]
+device_class = "rockchip-rk3588"
+codec = "Hevc"
+max_width = 3840
+max_height = 2160
+max_fps = 60
+max_concurrent_streams = 1
+verdict = "Borderline"
+confidence_penalty = 0.4
+notes = "SEED (unverified): reported thermal throttling and decoder-slot exhaustion under concurrent 4K load; clamp concurrent streams to 1 until confirmed."
