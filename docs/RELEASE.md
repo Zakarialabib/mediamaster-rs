@@ -1,123 +1,128 @@
-# Release plan — mediamaster-rs 0.3.0
+# Mediamaster Release Discipline & Procedure
 
-> **Status:** plan (not yet executed) · **Audience:** core team
-> **Companion:** [`CHANGELOG.md`](../CHANGELOG.md) · [`MEDIA-SCOPE-SPEC.md`](docs/MEDIA-SCOPE-SPEC.md) (§6)
+> **Status:** Active Standard
+> **Audience:** Workspace maintainers, release engineers, automated release agents
 
-This is the coordinated 0.3.0 expansion publish plan: `mediamaster-probe`
-(first deliverable), `mediamaster-codec` (native mediation), and
-`mediamaster-agent` (reconciliation loop) plus the purified `mediamaster-core`
-(+ CapsMatrix vocabulary). The baseline crates (`audio`, `rf`, `sensors`,
-`bridge`) stay at their published versions; cross-dep pins are re-pointed to
-the bumped `0.3.0` crates.
+This document defines the strict, reproducible release procedure for all crates in the
+`mediamaster-rs` workspace. Because embedders (such as the Windows Tauri desktop player
+and Android companion app) rely on these crates, the release pipeline must be mechanically
+trustworthy and honor SemVer.
 
-## 1. Current state (verified 2026-11-02)
+---
 
-| Crate | Version (local) | Status | `publish` in Cargo.toml |
-|-------|------------------|--------|--------------------------|
-| `mediamaster-core` | 0.3.0 | purified + CapsMatrix; not yet published to crates.io | default (true) |
-| `mediamaster-bus` | 0.3.0 | extracted out of core; not yet published | default (true) |
-| `mediamaster-probe` | 0.3.0 (was 0.1.0) | new, ready | default (true) — `publish = false` **removed** |
-| `mediamaster-codec` | 0.3.0 (was 0.1.0) | new, ready | default (true) — `publish = false` **removed** |
-| `mediamaster-agent` | 0.3.0 (was 0.1.0) | new, ready | default (true) |
-| `mediamaster-audio` | 0.2.0 | published (baseline) | default (true) |
-| `mediamaster-rf` | 0.2.0 | published (baseline) | default (true) |
-| `mediamaster-sensors` | 0.2.0 | published (baseline) | default (true) |
-| `mediamaster-bridge` | 0.1.0 | published (baseline) | default (true) |
-| `mediamaster-integration-tests` | 0.1.0 | test harness — `publish = false` (not published) | `publish = false` |
+## 1. Versioning Rules & SemVer Discipline
 
-> Native codec backends (`mf` = Windows Media Foundation, `mediacodec` =
-> Android MediaCodec NDK) stay **device-validation-pending, local-only**. They
-> are **not** published as native executables; the `mf`/`mediacodec` Cargo.toml
-> features are feature-gated and compile portably. Nothing here runs on this
-> host (no Windows/Android toolchains).
+1. **Zero-FFmpeg & Platform Independence**: Library crates must never link platform-only native binaries unless explicitly feature-gated.
+2. **SemVer Compliance**:
+   - Any public trait signature change (e.g. `AsyncSensor::read` → `read_sample`) is a breaking change and requires at least a minor version bump while `<1.0.0` (or major bump if `>=1.0.0`).
+   - Adding variants to non-exhaustive public enums (such as `HardwareEvent`) is a breaking change.
+   - Internal dependency bounds across workspace crates must specify exact compatible SemVer ranges.
+3. **Changelog Maintenance**:
+   - Every crate bump must have an associated entry in `CHANGELOG.md` detailing breaking changes, new features, and bug fixes.
+4. **Git Tag Naming**:
+   - Coordinated workspace releases use the standard tag format: `v<MAJOR>.<MINOR>.<PATCH>` (e.g., `v0.3.0`, `v0.4.0`).
+   - If an individual crate is released out of cycle, use `<crate_name>-v<version>` (e.g., `mediamaster-sensors-v0.3.0`).
 
-## 2. Target versions (aligned 0.3.0)
+---
 
-| Crate | From → To | Why |
-|-------|-----------|-----|
-| `mediamaster-core` | 0.2.0 → **0.3.0** | purified (tokio stripped, EventBus relocated); CapsMatrix vocab added |
-| `mediamaster-bus` | 0.3.0 (extracted) | EventBus removed from core |
-| `mediamaster-audio` | 0.2.0 | unchanged baseline (published) |
-| `mediamaster-rf` | 0.2.0 | unchanged baseline (published) |
-| `mediamaster-sensors` | 0.2.0 | unchanged baseline (published) |
-| `mediamaster-bridge` | 0.1.0 | unchanged baseline (published) |
-| `mediamaster-probe` | 0.1.0 → **0.3.0** | Phase 1 deliverable (pure-Rust container/bitset probe) |
-| `mediamaster-codec` | 0.1.0 → **0.3.0** | Phase 3 portable slice + native MF/NDK scaffolds |
-| `mediamaster-agent` | 0.1.0 → **0.3.0** | Phase 4 live paging & sensor ducking loop |
+## 2. Publish Order & Dependency Topology
 
-> Semver note: the new crates (`probe`, `codec`, `agent`) are **called out at
-> 0.3.0** so they depend on `mediamaster-core` 0.3.0 (no duplicate-type split);
-> the baseline crates keep their published 0.2.0/0.1.0 versions.
+Because crates.io verifies dependencies on upload, publish order must follow the strict dependency DAG from the bottom up. Wait for each crate to become visible on the crates.io sparse index before publishing the next step.
 
-## 3. Dependency re-pins (required before publishing the dependents)
+```text
+[Tier 1: Core Foundation]
+    mediamaster-core (alloc-only, #![no_std], zero tokio)
 
-The new crates (`probe`, `codec`, `agent`) depend on `mediamaster-core` 0.3.0
-and `mediamaster-bus` 0.3.0. Baseline crates already pin correctly. No further
-re-pins needed for `mediamaster-core`/`mediamaster-bus` (they have no
-cross-crate deps).
+[Tier 2: Foundation Utilities & Scaffolds]
+    mediamaster-bus (depends on core)
+    mediamaster-probe (standalone thiserror)
+    mediamaster-codec (depends on core)
 
-## 4. Pre-flight (must be green)
+[Tier 3: Domain Crates]
+    mediamaster-audio (depends on core, bus)
+    mediamaster-rf (depends on core, bus)
+    mediamaster-sensors (depends on core)
+
+[Tier 4: High-Level Coordination & Intelligence]
+    mediamaster-rag (depends on core, audio)
+    mediamaster-engine (depends on core, bus, audio, rf, sensors, probe, codec)
+    mediamaster-agent (depends on core, bus, audio, sensors, rf, codec, rag)
+
+[Tier 5: Integration Facade]
+    mediamaster-bridge (depends on core, bus, audio, sensors, rf)
+```
+
+---
+
+## 3. Pre-Flight Verification Gate
+
+Before initiating a release commit or publish action, all automated checks must pass locally and in CI:
 
 ```bash
+# 1. Formatting
 cargo fmt --check
-cargo clippy --workspace --no-default-features --all-targets -- -D warnings
-cargo test --workspace --no-default-features
+
+# 2. Strict linting across all workspace targets
+cargo clippy --workspace --all-targets -- -D warnings
+
+# 3. Unit and integration tests
+cargo test --workspace
+
+# 4. no_std target check
+cargo check -p mediamaster-core --target thumbv7em-none-eabihf --no-default-features
+cargo check -p mediamaster-core --target riscv32imac-unknown-none-elf --no-default-features
+
+# 5. Codec platform targets
+cargo check -p mediamaster-codec --target x86_64-pc-windows-gnu --features mf
+cargo check -p mediamaster-codec --target aarch64-linux-android --features mediacodec
+cargo check -p mediamaster-codec --no-default-features
+
+# 6. Feature powerset checks
+cargo hack --manifest-path crates/mediamaster-core/Cargo.toml --feature-powerset check
+cargo hack --manifest-path crates/mediamaster-audio/Cargo.toml --feature-powerset check
+cargo hack --manifest-path crates/mediamaster-probe/Cargo.toml --feature-powerset check
+cargo hack --manifest-path crates/mediamaster-rag/Cargo.toml --feature-powerset check
+cargo hack --manifest-path crates/mediamaster-sensors/Cargo.toml --feature-powerset check
+cargo hack --manifest-path crates/mediamaster-bridge/Cargo.toml --feature-powerset check
+cargo hack --manifest-path crates/mediamaster-rf/Cargo.toml --feature-powerset check
 ```
 
-## 5. Publish order (dependency-first, wait for crates.io to index between steps)
+---
 
+## 4. Execution Step-by-Step
+
+### Step 1: Dry Run Verification
+Execute `cargo publish --dry-run` for each crate in top-down dependency order:
 ```bash
-# 1. core (no internal deps besides serde)
 cargo publish --dry-run -p mediamaster-core
-cargo publish -p mediamaster-core
-
-# 2. bus (tokio + serde)
 cargo publish --dry-run -p mediamaster-bus
-cargo publish -p mediamaster-bus
-
-# 3. probe (thiserror)
 cargo publish --dry-run -p mediamaster-probe
-cargo publish -p mediamaster-probe
-
-# 4. codec (core + thiserror + optional windows/ndk)
 cargo publish --dry-run -p mediamaster-codec
-cargo publish -p mediamaster-codec
-
-# 5. agent (core + bus + audio/rf/sensors/bridge + thiserror + tokio)
+cargo publish --dry-run -p mediamaster-audio
+cargo publish --dry-run -p mediamaster-rf
+cargo publish --dry-run -p mediamaster-sensors
+cargo publish --dry-run -p mediamaster-rag
+cargo publish --dry-run -p mediamaster-engine
 cargo publish --dry-run -p mediamaster-agent
-cargo publish -p mediamaster-agent
+cargo publish --dry-run -p mediamaster-bridge
 ```
 
-> The `mf`/`mediacodec` features are **disabled by default** and the crates are
-> published without them, so native scaffold code does not reach crates.io.
-> On target devices, enable `mf`/`mediacodec` for the native path.
+### Step 2: Publish Execution
+Execute `cargo publish -p <crate>` following the exact order from Section 2, verifying crates.io index availability between steps.
 
-## 6. Tag & verify
+### Step 3: Git Tagging
+Create an annotated tag for the release commit:
+```bash
+git tag -a v0.4.0 -m "Release mediamaster-rs v0.4.0"
+git push origin v0.4.0
+```
+
+---
+
+## 5. Post-Publish Smoke Testing
+
+Immediately after publishing, run the scratch project smoke test script to verify that external downstream consumers can build and link against the newly published crates from a clean environment without workspace inheritance:
 
 ```bash
-git tag -a v0.3.0 -m "mediamaster-rs 0.3.0 expansion"
-git push origin v0.3.0
+./tools/publish-smoke/test-smoke.sh
 ```
-
-Verify each crate page on crates.io shows the new version, and the README
-badges still render (they fetch live from crates.io).
-
-## 7. Decision points (resolve before executing)
-
-1. **Publish all four new crates?** Yes — `probe`, `codec`, `agent` all publish
-   at 0.3.0. The `codec`'s `mf`/`mediacodec` features stay **disabled in the
-   published crate** (device-validation-pending on Windows/Android).
-2. **The baseline crates (`audio`, `rf`, `sensors`, `bridge`) stay at 0.2.0/0.1.0** —
-   they are not re-published in this run.
-3. **Token owner** — `cargo login` requires a crates.io API token. Confirm the
-   token owner before starting — publishing is **irreversible** (crates.io does
-   not allow un-publishing a version).
-4. **`publish = false` removed?** `probe` and `codec` `publish = false` lines are
-   removed for this release; `integration-tests` kept `publish = false` (test
-   harness, not publishable).
-
-## 8. After the release
-
-- Move `CHANGELOG.md`'s `[Unreleased]` heading into a `## [0.3.0] — <date>` section.
-- Confirm the README `Crates.io` table/badges reflect the new versions.
-- `masteraudio-rs.md` §6 Phase 1.5 → ✅ done.

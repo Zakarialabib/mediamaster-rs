@@ -1,0 +1,49 @@
+# Known Hardware Codec Quirks and Driver Overlays
+# Schema:
+# version = "1.0"
+# description = "Fleet-wide empirical observations of SoC and GPU decoding limits"
+#
+# [[quirks]]
+# device_class = "<soc_or_gpu_family_hash>"
+# codec = "H264" | "Hevc" | "Av1" | "Vp9" | "Mpeg2"
+# max_width = <u32> (optional)
+# max_height = <u32> (optional)
+# max_fps = <u32> (optional)
+# max_concurrent_streams = <u32> (optional)
+# hw_accelerated = <bool> (optional)
+# verdict = "Confirmed" | "Borderline" | "Refuted"
+# confidence_penalty = <f32> (e.g. 0.0 to 1.0)
+# notes = "<string>"
+
+version = "1.0"
+description = "Hardware driver quirks corpus for mediamaster-rs"
+
+[[quirks]]
+# SYNTHETIC PLACEHOLDER ENTRY 1:
+# Amlogic S905X4 vendor datasheet claims 4K60 10-bit HEVC decode, but driver starves
+# and drops frames rapidly when running more than 1 concurrent 4K stream or exceeding 1080p60.
+device_class = "amlogic-s905x4-synthetic"
+codec = "Hevc"
+max_width = 1920
+max_height = 1080
+max_fps = 60
+max_concurrent_streams = 1
+hw_accelerated = true
+verdict = "Borderline"
+confidence_penalty = 0.5
+notes = "SYNTHETIC: Vendor claims 4K60 HEVC multi-decode; multi-stream stalls above 1080p60."
+
+[[quirks]]
+# SYNTHETIC PLACEHOLDER ENTRY 2:
+# Rockchip RK3588 MediaCodec driver advertises 8K30 VP9 hardware decoding, but
+# video decoder crashes or falls back to software decode at 3fps under production thermal envelope.
+device_class = "rockchip-rk3588-synthetic"
+codec = "Vp9"
+max_width = 3840
+max_height = 2160
+max_fps = 60
+max_concurrent_streams = 2
+hw_accelerated = false
+verdict = "Refuted"
+confidence_penalty = 0.85
+notes = "SYNTHETIC: 8K VP9 advertised, but driver crashes; refuted above 4K60 and hw_accelerated refuted."
