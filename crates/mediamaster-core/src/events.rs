@@ -6,6 +6,7 @@ use alloc::vec::Vec;
 #[cfg(feature = "serde-sync")]
 use serde::{Deserialize, Serialize};
 
+use crate::caps::DegradationTier;
 use crate::types::{BoundingBox, RadioBurst, RoomState};
 
 /// Every event the ecosystem publishes and consumers subscribe to.
@@ -41,6 +42,13 @@ pub enum HardwareEvent {
         lux_rate_of_change: f32,
         rf_burst_frequency: f32,
     },
+    /// A poster fallback or backdrop artifact was generated for a visual stream.
+    PosterGenerated {
+        uri_hint: String,
+        tier: DegradationTier,
+    },
+    /// Storage retention engine computed an eviction plan.
+    EvictionPlanned { count: usize, freed_bytes: u64 },
 }
 
 impl HardwareEvent {
@@ -52,6 +60,8 @@ impl HardwareEvent {
             HardwareEvent::CctvMotionDetected { .. } => "CctvMotionDetected",
             HardwareEvent::ZoneChanged { .. } => "ZoneChanged",
             HardwareEvent::EnvironmentalDrift { .. } => "EnvironmentalDrift",
+            HardwareEvent::PosterGenerated { .. } => "PosterGenerated",
+            HardwareEvent::EvictionPlanned { .. } => "EvictionPlanned",
         }
     }
 }

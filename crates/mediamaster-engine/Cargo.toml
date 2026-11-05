@@ -34,3 +34,6 @@ required-features = ["hls"]
 [[test]]
 name = "hls_tests"
 required-features = ["hls"]
+
+[dev-dependencies]
+proptest = "1.12.0"

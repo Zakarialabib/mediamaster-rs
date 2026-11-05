@@ -16,6 +16,8 @@ pub mod audio_bus;
 pub mod engine_selector;
 #[cfg(feature = "hls")]
 pub mod hls;
+pub mod poster;
+pub mod retention;
 pub mod transcode_plan;
 
 pub use audio_bus::{AudioBus, AudioBusConfig};
@@ -28,6 +30,8 @@ pub use hls::{
 };
 #[cfg(feature = "hls")]
 pub use transcode_plan::HlsJob;
+pub use poster::{BackdropSink, EncodedPacket, PacketSource, PosterProducer};
+pub use retention::{EvictionPlan, RetainedItem, RetentionEngine};
 pub use transcode_plan::{Codec, Container, Profile, TranscodePlan};
 
 pub type EngineError = Box<dyn std::error::Error + Send + Sync>;

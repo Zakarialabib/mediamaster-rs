@@ -79,7 +79,9 @@ impl EventHandlers {
             }
             HardwareEvent::ZoneChanged { .. }
             | HardwareEvent::CctvMotionDetected { .. }
-            | HardwareEvent::EnvironmentalDrift { .. } => {}
+            | HardwareEvent::EnvironmentalDrift { .. }
+            | HardwareEvent::PosterGenerated { .. }
+            | HardwareEvent::EvictionPlanned { .. } => {}
         }
     }
 
