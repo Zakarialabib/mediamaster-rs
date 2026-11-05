@@ -1,6 +1,6 @@
 [package]
 name = "mediamaster-bridge"
-version = "0.1.0"
+version = "0.2.0"
 description = "Bridge crate: unified API for mediamaster-rs domains (audio + sensors + rf) with device enumerators and event handlers"
 edition = "2021"
 rust-version = "1.95"
@@ -18,8 +18,8 @@ audio-cpal = ["mediamaster-audio/audio-cpal"]
 mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
 mediamaster-bus = { path = "../mediamaster-bus", version = "0.3.0" }
 mediamaster-audio = { path = "../mediamaster-audio", version = "0.3.0" }
-mediamaster-sensors = { path = "../mediamaster-sensors", version = "0.2.0" }
-mediamaster-rf = { path = "../mediamaster-rf", version = "0.2.0" }
+mediamaster-sensors = { path = "../mediamaster-sensors", version = "0.3.0" }
+mediamaster-rf = { path = "../mediamaster-rf", version = "0.3.0" }
 
 tokio = { workspace = true, features = ["sync", "macros"] }
 serde = { workspace = true, features = ["derive"] }
