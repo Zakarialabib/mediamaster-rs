@@ -1,3 +1,14 @@
+# Pinned toolchain for the whole workspace.
+#
+# Keep the channel in sync with:
+#   - `rust-version` in the root `Cargo.toml` ([workspace.package])
+#   - the `toolchain` input in `.github/workflows/ci.yml`
+#
+# Rendered with `profile = "minimal"` so a fresh checkout only downloads the
+# compiler plus the two components the release gate needs. Cross-compile
+# targets (wasm32-unknown-unknown, thumbv7m-none-eabi) are installed by CI on
+# demand rather than forced on every contributor.
 [toolchain]
 channel = "1.95"
+profile = "minimal"
 components = ["rustfmt", "clippy"]

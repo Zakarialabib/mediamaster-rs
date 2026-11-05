@@ -1,0 +1,26 @@
+# Auto-detect text files and normalise to LF in the repository.
+* text=auto eol=lf
+
+# Source and documentation are always LF, on every platform.
+*.rs text eol=lf
+*.toml text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
+*.json text eol=lf
+
+# Windows-only tooling keeps CRLF.
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Binaries: never diff, never normalise.
+*.png binary
+*.jpg binary
+*.ico binary
+*.exe binary
+*.dll binary
+*.pdb binary
+
+# Keep generated lockfile diffs readable.
+Cargo.lock text eol=lf merge=union
