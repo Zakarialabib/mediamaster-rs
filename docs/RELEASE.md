@@ -68,6 +68,9 @@ cargo clippy --workspace --all-targets -- -D warnings
 # 3. Unit and integration tests
 cargo test --workspace
 
+# Hardware Device Validation & Quirks Corpus Seeding (Real Device Pre-Flight)
+cargo test -p mediamaster-codec --test device_probe -- --ignored --nocapture
+
 # 4. no_std target check
 cargo check -p mediamaster-core --target thumbv7em-none-eabihf --no-default-features
 cargo check -p mediamaster-core --target riscv32imac-unknown-none-elf --no-default-features
@@ -133,4 +136,3 @@ Immediately after publishing, run the scratch project smoke test script to verif
 - `AsyncSensor` relocation: `mediamaster-core::traits::AsyncSensor` is deprecated in 0.3.x and will be removed in 0.4.0. Consumers must migrate to `mediamaster-sensors::AsyncSensor`.
 - `mediamaster-sensors` bump: `mediamaster-sensors` introduces `SimulatedSensorStream` and uniform `AsyncSensor` implementations across hardware backends (`hw.rs`).
 - `mediamaster-agent` pipeline activation: `FusionOutputDriver` and TOML-loadable `AutomationRule` DSL provide active sensor-to-mixer/zones control.
-
