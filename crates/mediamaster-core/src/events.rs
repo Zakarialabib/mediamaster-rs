@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 #[cfg(feature = "serde-sync")]
 use serde::{Deserialize, Serialize};
 
-use crate::caps::Codec;
+use crate::caps::{DegradationTier, Codec};
 use crate::types::{BoundingBox, RadioBurst, RoomState};
 
 /// Every event the ecosystem publishes and consumers subscribe to.
@@ -67,6 +67,13 @@ pub enum HardwareEvent {
         concurrent_streams: u32,
         duration_ms: u64,
     },
+    /// A poster fallback or backdrop artifact was generated for a visual stream.
+    PosterGenerated {
+        uri_hint: String,
+        tier: DegradationTier,
+    },
+    /// Storage retention engine computed an eviction plan.
+    EvictionPlanned { count: usize, freed_bytes: u64 },
 }
 
 impl HardwareEvent {
@@ -81,6 +88,8 @@ impl HardwareEvent {
             HardwareEvent::SlotRevoked { .. } => "SlotRevoked",
             HardwareEvent::StarvationDetected { .. } => "StarvationDetected",
             HardwareEvent::DecodeHeartbeat { .. } => "DecodeHeartbeat",
+            HardwareEvent::PosterGenerated { .. } => "PosterGenerated",
+            HardwareEvent::EvictionPlanned { .. } => "EvictionPlanned",
         }
     }
 }

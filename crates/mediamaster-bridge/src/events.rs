@@ -83,6 +83,8 @@ impl EventHandlers {
             | HardwareEvent::SlotRevoked { .. }
             | HardwareEvent::StarvationDetected { .. }
             | HardwareEvent::DecodeHeartbeat { .. } => {}
+            | HardwareEvent::PosterGenerated { .. }
+            | HardwareEvent::EvictionPlanned { .. } => {}
         }
     }
 

@@ -21,3 +21,6 @@ thiserror = { workspace = true }
 [lib]
 name = "mediamaster_engine"
 path = "src/lib.rs"
+
+[dev-dependencies]
+proptest = "1.12.0"
