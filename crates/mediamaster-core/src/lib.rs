@@ -24,5 +24,7 @@ pub use caps::{CapsMatrix, Codec, CodecCaps, DegradationTier, PixelFormat};
 pub use error::MediamasterError;
 pub use events::{EventPublisher, HardwareEvent};
 pub use provisioning::{MaintenanceLease, MediaCapabilityBundleV1};
-pub use traits::{AsyncSensor, AudioSource, SensorReading, Signal, SignalDetector};
+#[allow(deprecated)]
+pub use traits::AsyncSensor;
+pub use traits::{AudioSource, SensorReading, Signal, SignalDetector};
 pub use types::{AudioTarget, BoundingBox, RadioBurst, RoomState};

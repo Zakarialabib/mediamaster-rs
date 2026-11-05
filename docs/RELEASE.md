@@ -121,3 +121,8 @@ badges still render (they fetch live from crates.io).
 - Move `CHANGELOG.md`'s `[Unreleased]` heading into a `## [0.3.0] — <date>` section.
 - Confirm the README `Crates.io` table/badges reflect the new versions.
 - `masteraudio-rs.md` §6 Phase 1.5 → ✅ done.
+
+## 9. 0.3 → 0.4 Transition Notes & Breaking Changes
+- `AsyncSensor` relocation: `mediamaster-core::traits::AsyncSensor` is deprecated in 0.3.x and will be removed in 0.4.0. Consumers must migrate to `mediamaster-sensors::AsyncSensor`.
+- `mediamaster-sensors` bump: `mediamaster-sensors` introduces `SimulatedSensorStream` and uniform `AsyncSensor` implementations across hardware backends (`hw.rs`).
+- `mediamaster-agent` pipeline activation: `FusionOutputDriver` and TOML-loadable `AutomationRule` DSL provide active sensor-to-mixer/zones control.

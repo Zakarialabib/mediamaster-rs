@@ -99,3 +99,13 @@ façade) implement/wire them. Only the top of the stack is application-specific.
 - **Phase 3 — pending:** `media-scope` extraction (follow-up, Phase 2 outcome).
 
 > The full phase table lives in [`masteraudio-rs.md`](docs/masteraudio-rs.md) §6.
+
+## 7. Migration guide: 0.3 → 0.4
+
+### Relocation of `AsyncSensor`
+- **What changed:** `AsyncSensor` has been relocated from `mediamaster-core::traits::AsyncSensor` to `mediamaster-sensors::sensor::AsyncSensor` (re-exported as `mediamaster_sensors::AsyncSensor`).
+- **Why:** `mediamaster-core` is an `#![no_std]` + `alloc`-only pure vocabulary crate. Relocating `AsyncSensor` isolates async trait definitions and dynamic boxing within `mediamaster-sensors` and avoids signature-drift across core releases.
+- **Deprecation shim:** `mediamaster-core::traits::AsyncSensor` is marked `#[deprecated]` in 0.3.x and will be removed in 0.4.0.
+- **Action required:**
+  - Replace `use mediamaster_core::traits::AsyncSensor;` or `use mediamaster_core::AsyncSensor;`
+  - With `use mediamaster_sensors::AsyncSensor;` (or `use mediamaster_bridge::AsyncSensor;`).

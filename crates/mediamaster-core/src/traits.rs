@@ -31,8 +31,14 @@ pub trait AudioSource: Send + Sync {
 
 /// A hardware sensor read through an object-safe async interface.
 ///
-/// Returns a boxed future so `Box<dyn AsyncSensor>` is valid. `&mut self` so a
-/// driver may keep per-poll state without interior mutability.
+/// # Deprecation Notice
+/// `AsyncSensor` has been relocated to `mediamaster-sensors::sensor::AsyncSensor` to maintain
+/// `mediamaster-core` as a pure, runtime-agnostic vocabulary crate.
+/// This trait definition will be removed in 0.4.0. Please update imports to `mediamaster_sensors::AsyncSensor`.
+#[deprecated(
+    since = "0.3.1",
+    note = "AsyncSensor has moved to mediamaster-sensors. Please import from mediamaster_sensors::AsyncSensor."
+)]
 pub trait AsyncSensor: Send + Sync {
     /// Poll the next sensor sample asynchronously.
     fn read_sample<'a>(
