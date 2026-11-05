@@ -25,3 +25,14 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace
+
+  wasm-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+      - name: Check wasm32 targets
+        run: cargo check --target wasm32-unknown-unknown -p mediamaster-core -p mediamaster-probe -p mediamaster-bus -p mediamaster-rag --all-features
