@@ -1,0 +1,16 @@
+[package]
+name = "mediamaster-frame"
+version = "0.3.0"
+description = "Frame and packet vocabulary (FramePacket, channels) for mediamaster-rs"
+authors = ["SignageMaster Team <team@signage-master.example.com>"]
+edition = "2021"
+rust-version = "1.95"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
+thiserror = { workspace = true }
+
+[lib]
+name = "mediamaster_frame"
+path = "src/lib.rs"

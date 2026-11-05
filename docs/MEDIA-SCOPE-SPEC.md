@@ -74,7 +74,7 @@ Every crate lives at `crates/<dir>` and adheres to strict dependency layering. *
 || **`mediamaster-codec`** | **New (0.3.0 — Phase 3)** | Hardware capability discovery (`CapsMatrix`) and unified `Decoder`/`Encoder` traits over three isolated feature backends: **Windows Media Foundation (`mf`)**, **Android NDK `AMediaCodec` (`mediacodec`)**, and optional **FFmpeg FFI (`ffmpeg`)**. Portable slice (`CodecSlotManager`, `DegradationTier`, `CapsDiscovery`) + MF/NDK actor scaffolds (device-validation pending). |
 || **`mediamaster-agent`** | **New (0.3.0 — Phase 4)** | Autonomous reconciliation loop: watches `RoomState` + `AudioBus` + transcode queues, applies `DuckingProfile` on paging/sensor events, enforces `MaintenanceLease`, and logs health to JSONL. Live Paging & Sensor Ducking Loop. |
 || **`mediamaster-rag`** | **New (0.1.0 — RAG layer)** | Acoustic profiles, codec matrix & sensor-context knowledge store — `CodecKnowledgeStore`, `SceneMemoryStore`, `PlaybookStore` for RAG-based acoustic paging and codec recommendation. |
-|| **`mediamaster-engine`** | **New (0.3.0 — Phase 5)** | Coordination layer — `AudioBus` (lock-free PCM ring), `TranscodePlan` (capability-decision), `EngineSelector` (backend pick: MF/NDK or software fallback). |
+|| **`mediamaster-engine`** | **Published (`0.3.0` — Phase 5 done)** | Coordination & HLS production layer — `AudioBus` (lock-free PCM ring), `TranscodePlan` (capability-decision), `EngineSelector`, pure-Rust `hls` pipeline (`SegmentSink`, pure MPEG-TS muxer, fMP4 CMAF muxer, `HlsSegmenter` with IDR boundary cutting, LL-HLS parts, rendition ladder degradation). |
 
 ---
 
@@ -170,8 +170,14 @@ pub struct MediaCapabilityBundleV1 {
 - Live Paging & Sensor Ducking Loop: on `RoomState::EmergencyOverride` (added in Phase 2) or a live paging stream, command `mediamaster-audio::Mixer` to apply `DuckingProfile` and emit an audit event.
 - **Gate:** `cargo test -p mediamaster-agent --all-features`.
 
-### Phase 5: Update `MEDIA-SCOPE-SPEC.md` in place & Final Verification
-- Update (not overwrite) this spec to the finalized `0.3.0` state.
+### Phase 5: Engine Coordination & Pure-Rust HLS Production (`mediamaster-engine::hls`) — *DONE*
+- Implement `mediamaster-engine::hls` feature pulling in pure-Rust muxers and `mediamaster-frame`.
+- `SegmentSink` trait for delivering produced segments out to the embedding application (zero HTTP hosting in engine).
+- Pure-Rust MPEG-TS muxer (PAT, PMT, PES, PCR) and CMAF fMP4 init/media muxer.
+- `HlsSegmenter` cutting segments on IDR boundaries with deterministic monotonic PTS arithmetic and LL-HLS support (`EXT-X-PART`, `EXT-X-PRELOAD-HINT`).
+- Rendition ladder integration with `degrade_until` fallback to poster artifacts on hardware slot exhaustion.
+- `TranscodePlan::to_hls_job()` routing to backends via `EngineSelector` and `CodecSlotManager`.
+- ffmpeg CLI is completely eliminated from HLS production pipelines.
 - Final workspace gate: `cargo check --workspace --all-targets`, `cargo test --workspace --all-features`, `cargo clippy --workspace --all-targets -- -D warnings`, `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps`.
 
 ### Deferred (out of `0.3.0`)

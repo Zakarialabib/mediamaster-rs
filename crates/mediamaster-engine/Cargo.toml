@@ -7,6 +7,10 @@ edition = "2021"
 rust-version = "1.95"
 license = "MIT OR Apache-2.0"
 
+[features]
+default = ["hls"]
+hls = ["dep:mediamaster-frame"]
+
 [dependencies]
 mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
 mediamaster-bus = { path = "../mediamaster-bus", version = "0.3.0" }
@@ -15,9 +19,18 @@ mediamaster-rf = { path = "../mediamaster-rf", version = "0.2.0" }
 mediamaster-sensors = { path = "../mediamaster-sensors", version = "0.2.0" }
 mediamaster-probe = { path = "../mediamaster-probe", version = "0.3.0" }
 mediamaster-codec = { path = "../mediamaster-codec", version = "0.3.0" }
+mediamaster-frame = { path = "../mediamaster-frame", version = "0.3.0", optional = true }
 ringbuf = { version = "0.3", features = ["alloc"] }
 thiserror = { workspace = true }
 
 [lib]
 name = "mediamaster_engine"
 path = "src/lib.rs"
+
+[[example]]
+name = "segment_to_memory"
+required-features = ["hls"]
+
+[[test]]
+name = "hls_tests"
+required-features = ["hls"]
