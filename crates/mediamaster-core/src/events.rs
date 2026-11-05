@@ -44,6 +44,16 @@ pub enum HardwareEvent {
     },
     /// A fan-out or ring consumer fell behind and dropped frames.
     FrameDrop { subscriber_id: usize, count: u64 },
+    /// Audio stream buffer underrun detected on a source.
+    AudioUnderrun {
+        source: String,
+        dropped_frames: usize,
+    },
+    /// Audio stream buffer overrun detected on a source.
+    AudioOverrun {
+        source: String,
+        dropped_frames: usize,
+    },
     /// A poster fallback or backdrop artifact was generated for a visual stream.
     PosterGenerated {
         uri_hint: String,
@@ -88,6 +98,8 @@ impl HardwareEvent {
             HardwareEvent::ZoneChanged { .. } => "ZoneChanged",
             HardwareEvent::EnvironmentalDrift { .. } => "EnvironmentalDrift",
             HardwareEvent::FrameDrop { .. } => "FrameDrop",
+            HardwareEvent::AudioUnderrun { .. } => "AudioUnderrun",
+            HardwareEvent::AudioOverrun { .. } => "AudioOverrun",
             HardwareEvent::PosterGenerated { .. } => "PosterGenerated",
             HardwareEvent::EvictionPlanned { .. } => "EvictionPlanned",
             HardwareEvent::SlotRevoked { .. } => "SlotRevoked",

@@ -3,62 +3,79 @@
 //! This module provides concrete `AsyncSensor` implementations for real
 //! sensors behind I2C/SPI/UART buses. It is feature-gated behind `hw` so the
 //! crate remains `no_std`-capable when the feature is disabled.
-//!
-//! # Example
-//! ```ignore
-//! use mediamaster_sensors::hw::Bme280Sensor;
-//! use mediamaster_sensors::fusion::FusionEngine;
-//!
-//! let mut engine = FusionEngine::new();
-//! engine.register("temp", Box::new(Bme280Sensor::new(i2c_device)));
-//! ```
+
+use std::boxed::Box;
+use std::future::Future;
+use std::pin::Pin;
+
+use mediamaster_core::traits::SensorReading;
+use mediamaster_core::MediamasterError;
+
+use crate::sensor::AsyncSensor;
 
 // Re-export the HAL trait for consumers that need it.
+#[cfg(feature = "hw")]
 pub use embedded_hal_async::i2c::I2c;
 
 /// Mock sensor for testing — returns deterministic values.
 #[derive(Debug, Clone)]
 pub struct MockSensor {
-    value: f32,
+    reading: SensorReading,
     id: String,
 }
 
 impl MockSensor {
-    pub fn new(id: &str, value: f32) -> Self {
+    pub fn new(id: &str, reading: SensorReading) -> Self {
         Self {
             id: id.to_string(),
-            value,
+            reading,
         }
+    }
+
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    pub fn set_reading(&mut self, reading: SensorReading) {
+        self.reading = reading;
     }
 }
 
-impl embedded_hal_async::sensors::Sensor for MockSensor {
-    #[allow(async_fn_in_trait)]
-    async fn read(&mut self) -> Result<f32, Box<dyn std::error::Error + Send + Sync>> {
-        Ok(self.value)
+impl AsyncSensor for MockSensor {
+    fn read_sample<'a>(
+        &'a mut self,
+    ) -> Pin<Box<dyn Future<Output = Result<SensorReading, MediamasterError>> + Send + 'a>> {
+        let reading = self.reading;
+        Box::pin(async move { Ok(reading) })
     }
 }
 
 /// Placeholder: in a real implementation, wrap an I2C sensor like BME280,
 /// BNO080 (IMU), or MLX90640 (thermal).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct PlaceholderSensor;
 
-impl embedded_hal_async::sensors::Sensor for PlaceholderSensor {
-    async fn read(&mut self) -> Result<f32, Box<dyn std::error::Error + Send + Sync>> {
-        // TODO: real I2C read
-        Ok(0.0)
+impl AsyncSensor for PlaceholderSensor {
+    fn read_sample<'a>(
+        &'a mut self,
+    ) -> Pin<Box<dyn Future<Output = Result<SensorReading, MediamasterError>> + Send + 'a>> {
+        Box::pin(async move { Ok(SensorReading::Unknown) })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use embedded_hal_async::sensors::Sensor;
 
-    #[test]
-    fn mock_sensor_reads_value() {
-        let mut s = MockSensor::new("test", 0.75);
-        assert_eq!(s.read().await.unwrap(), 0.75);
+    #[tokio::test]
+    async fn mock_sensor_reads_reading() {
+        let mut s = MockSensor::new("test", SensorReading::Occupancy);
+        assert_eq!(s.read_sample().await.unwrap(), SensorReading::Occupancy);
+    }
+
+    #[tokio::test]
+    async fn placeholder_sensor_reads_unknown() {
+        let mut s = PlaceholderSensor;
+        assert_eq!(s.read_sample().await.unwrap(), SensorReading::Unknown);
     }
 }

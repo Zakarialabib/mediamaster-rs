@@ -14,10 +14,13 @@ categories = ["embedded", "hardware-support"]
 
 [dependencies]
 mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["time"] }
 
 # Standard async HAL for real hardware (optional — no_std capable).
 embedded-hal-async = { version = "1", optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros"] }
 
 [features]
 default = []

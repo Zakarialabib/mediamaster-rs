@@ -22,7 +22,8 @@ thiserror = { workspace = true }
 cpal = { version = "0.15", optional = true }
 
 # Media decode helpers (optional).
-symphonia = { version = "0.5", optional = true, default-features = false, features = ["mp3"] }
+symphonia = { version = "0.5", optional = true, default-features = false, features = ["isomp4", "mp3", "pcm", "wav"] }
+rubato = { version = "5.0", optional = true }
 
 # Opus audio codec (optional).
 # The `opus` feature links to native libopus (libopus license: BSD-3-Clause).
@@ -37,7 +38,8 @@ default = []
 # On Rust 2021 targets a default backend is picked automatically.
 audio-cpal = ["cpal"]
 # Decode media assets into PCM (requires a `cpal` target and `ffmpeg`).
-decode = ["symphonia"]
+decode = ["dep:symphonia"]
+resample = ["dep:rubato"]
 # Opus decoding via libopus FFI (BSD-3-Clause).
 opus = ["dep:opus"]
 # Pure-Rust fallback stub returning UnsupportedCodec when native FFI is absent.
