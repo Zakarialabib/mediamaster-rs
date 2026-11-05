@@ -41,6 +41,8 @@ pub enum HardwareEvent {
         lux_rate_of_change: f32,
         rf_burst_frequency: f32,
     },
+    /// A fan-out or ring consumer fell behind and dropped frames.
+    FrameDrop { subscriber_id: usize, count: u64 },
 }
 
 impl HardwareEvent {
@@ -52,6 +54,7 @@ impl HardwareEvent {
             HardwareEvent::CctvMotionDetected { .. } => "CctvMotionDetected",
             HardwareEvent::ZoneChanged { .. } => "ZoneChanged",
             HardwareEvent::EnvironmentalDrift { .. } => "EnvironmentalDrift",
+            HardwareEvent::FrameDrop { .. } => "FrameDrop",
         }
     }
 }

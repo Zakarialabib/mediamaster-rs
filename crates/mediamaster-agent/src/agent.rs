@@ -173,8 +173,10 @@ impl Agent {
                     target: *ducking,
                 });
             }
-            HardwareEvent::ZoneChanged { .. } | HardwareEvent::CctvMotionDetected { .. } => {
-                // Zone/Cctv events are recording-only for the agent.
+            HardwareEvent::ZoneChanged { .. }
+            | HardwareEvent::CctvMotionDetected { .. }
+            | HardwareEvent::FrameDrop { .. } => {
+                // Zone/Cctv/FrameDrop events are recording-only for the agent.
             }
             HardwareEvent::EnvironmentalDrift {
                 motion_density,
