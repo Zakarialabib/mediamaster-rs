@@ -1,0 +1,4 @@
+[alias]
+# `cargo xtask publish …` runs the workspace task runner. The alias belongs in
+# `.cargo/config.toml`; Cargo does not read `[alias]` from a manifest.
+xtask = "run -p xtask --"

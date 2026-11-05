@@ -1,0 +1,18 @@
+[package]
+name = "xtask"
+description = "Workspace automation for mediamaster-rs — `cargo xtask publish` and `cargo xtask hw-test`."
+version = "0.0.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+# `publish` shells out to `cargo` and needs no dependencies. `hw-test` drives the
+# async plane (shared `EventBus` + bridge event handlers), so it links the
+# integration facade (`mediamaster-bridge`) and a minimal tokio runtime.
+[dependencies]
+mediamaster-bridge = { path = "../crates/mediamaster-bridge", version = "0.2.0" }
+mediamaster-bus = { path = "../crates/mediamaster-bus", version = "0.3.0" }
+mediamaster-core = { path = "../crates/mediamaster-core", version = "0.3.0" }
+tokio = { workspace = true, features = ["rt", "time", "sync", "macros"] }
