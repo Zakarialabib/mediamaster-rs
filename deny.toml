@@ -5,9 +5,16 @@
 version = 2
 # A yanked crate in the lockfile is a hard failure; bump it instead of ignoring.
 yanked = "deny"
-# Add RUSTSEC ids here (with a comment and an upstream link) only while a bump
-# is in flight, and remove them as soon as the fix lands.
-ignore = []
+# Add RUSTSEC ids here (with a reason and an upstream link) only while a bump is
+# in flight, and remove them as soon as the fix lands.
+ignore = [
+    # ringbuf 0.3.3: `Consumer::skip()`/`clear()` are not panic-safe when an
+    # element's `Drop` panics (CWE-415/416). Fixed in ringbuf >= 0.5.2.
+    # Not reachable here: the only ring payloads are `f32` and the plain
+    # `AutomationCommand` enum (f32 fields, no `Drop`), which cannot panic on
+    # drop. Tracked for upgrade via the dependabot ringbuf PR.
+    { id = "RUSTSEC-2026-0293", reason = "ringbuf 0.3.3; ring payloads (f32, AutomationCommand) have no panicking Drop" },
+]
 
 [licenses]
 version = 2
@@ -15,6 +22,9 @@ version = 2
 # clause, so both are listed; MPL-2.0 (symphonia) is file-level copyleft and is
 # safe to link against.
 confidence-threshold = 0.9
+# Keep the allow-list forward-looking without emitting a warning per entry that
+# the current dependency graph happens not to use.
+unused-allowed-license = "allow"
 allow = [
     "0BSD",
     "Apache-2.0",
