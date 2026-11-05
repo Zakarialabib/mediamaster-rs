@@ -98,4 +98,19 @@ façade) implement/wire them. Only the top of the stack is application-specific.
   (external repos).
 - **Phase 3 — pending:** `media-scope` extraction (follow-up, Phase 2 outcome).
 
+## 7. Migration Notes: In-Process HLS Production (`mediamaster-engine::hls`)
+
+> **ffmpeg CLI no longer required for HLS production.**
+
+Previously, consumers turned raw video/audio streams into HLS by shelling out to the `ffmpeg` CLI as spawned child processes. This introduced severe operational liabilities:
+- Zombie process leaks and signal handling complexity.
+- GPL licensing contamination risks.
+- Hard-blocking failures on Android where platform exec-permission security models forbid executing child CLI binaries.
+
+`mediamaster-engine` now provides an in-process, pure-Rust HLS pipeline behind the `hls` feature:
+- Segments are emitted directly through the `SegmentSink` trait (`SegmentSink::put_segment`).
+- Engine never hosts an HTTP server or serves bytes; the embedding app connects the sink to its own byte-serving layer (e.g. `tv-rs-media`).
+- Built-in pure-Rust MPEG-TS muxer (PAT, PMT, PES, PCR) and CMAF fMP4 muxer (`ftyp`, `moov`, `moof`, `mdat`).
+- Deterministic PTS-based IDR segmentation, Low-Latency HLS parts (`EXT-X-PART` / `EXT-X-PRELOAD-HINT`), and automatic degradation ladder fallbacks to poster artifacts (`DegradationTier::Tier4PosterFallback`).
+
 > The full phase table lives in [`masteraudio-rs.md`](docs/masteraudio-rs.md) §6.
