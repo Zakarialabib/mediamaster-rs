@@ -173,8 +173,11 @@ impl Agent {
                     target: *ducking,
                 });
             }
-            HardwareEvent::ZoneChanged { .. } | HardwareEvent::CctvMotionDetected { .. } => {
-                // Zone/Cctv events are recording-only for the agent.
+            HardwareEvent::ZoneChanged { .. }
+            | HardwareEvent::CctvMotionDetected { .. }
+            | HardwareEvent::AudioUnderrun { .. }
+            | HardwareEvent::AudioOverrun { .. } => {
+                // Zone/Cctv/Audio buffer metrics are recording-only for the agent.
             }
             HardwareEvent::EnvironmentalDrift {
                 motion_density,

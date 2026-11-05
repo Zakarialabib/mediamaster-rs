@@ -41,6 +41,16 @@ pub enum HardwareEvent {
         lux_rate_of_change: f32,
         rf_burst_frequency: f32,
     },
+    /// Audio stream buffer underrun detected on a source.
+    AudioUnderrun {
+        source: String,
+        dropped_frames: usize,
+    },
+    /// Audio stream buffer overrun detected on a source.
+    AudioOverrun {
+        source: String,
+        dropped_frames: usize,
+    },
 }
 
 impl HardwareEvent {
@@ -52,6 +62,8 @@ impl HardwareEvent {
             HardwareEvent::CctvMotionDetected { .. } => "CctvMotionDetected",
             HardwareEvent::ZoneChanged { .. } => "ZoneChanged",
             HardwareEvent::EnvironmentalDrift { .. } => "EnvironmentalDrift",
+            HardwareEvent::AudioUnderrun { .. } => "AudioUnderrun",
+            HardwareEvent::AudioOverrun { .. } => "AudioOverrun",
         }
     }
 }
