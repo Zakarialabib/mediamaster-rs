@@ -22,7 +22,7 @@ mediamaster-rs/
 |---|---|---|---|---|
 | `mediamaster-core` | `mediamaster-core` | 0.3.0 | ✅ | Pure Rust, `#![no_std]`+`alloc`, `EventBus` relocated, `CapsMatrix` vocabulary, `RoomState::EmergencyOverride` |
 | `mediamaster-bus` | `mediamaster-bus` | 0.3.0 | ✅ | `EventBus` (`tokio::sync::broadcast`) — the unified app event bus |
-| `mediamaster-probe` | `mediamaster-probe` | 0.3.0 | ✅ | Zero-FFmpeg container & bitstream header inspector (MP4, MKV, WebM) |
+| `mediamaster-probe` | `mediamaster-probe` | 0.3.0 | ✅ | Zero-FFmpeg container & bitstream inspector (MP4, MKV, WebM, MPEG-TS, MP3, ADTS/AAC, FLAC, WAV/RF64, JPEG, PNG, GIF, WebP) |
 | `mediamaster-codec` | `mediamaster-codec` | 0.3.0 | ✅ (portable) | Capability-aware codec slotting, `CapsMatrix`, `DegradationTier` fallback |
 | `mediamaster-audio` | `mediamaster-audio` | 0.3.0 | ✅ | Typed audio zones, `DuckingProfile`, `PagingJitterBuffer` (live paging) |
 | `mediamaster-agent` | `mediamaster-agent` | 0.3.0 | ✅ | Live Paging & Sensor Ducking Loop — control plane |
