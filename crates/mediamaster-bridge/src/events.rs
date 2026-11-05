@@ -84,7 +84,9 @@ impl EventHandlers {
             | HardwareEvent::EvictionPlanned { .. }
             | HardwareEvent::SlotRevoked { .. }
             | HardwareEvent::StarvationDetected { .. }
-            | HardwareEvent::DecodeHeartbeat { .. } => {}
+            | HardwareEvent::DecodeHeartbeat { .. }
+            | HardwareEvent::AudioUnderrun { .. }
+            | HardwareEvent::AudioOverrun { .. } => {}
         }
     }
 

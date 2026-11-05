@@ -176,8 +176,10 @@ impl Agent {
             HardwareEvent::ZoneChanged { .. }
             | HardwareEvent::CctvMotionDetected { .. }
             | HardwareEvent::PosterGenerated { .. }
-            | HardwareEvent::EvictionPlanned { .. } => {
-                // Zone/Cctv/Poster/Eviction events are recording/audit-only for the agent.
+            | HardwareEvent::EvictionPlanned { .. }
+            | HardwareEvent::AudioUnderrun { .. }
+            | HardwareEvent::AudioOverrun { .. } => {
+                // Zone/Cctv/Poster/Eviction/Audio buffer events are recording/audit-only for the agent.
             }
             HardwareEvent::EnvironmentalDrift {
                 motion_density,
