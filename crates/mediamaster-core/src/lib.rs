@@ -16,6 +16,7 @@ extern crate alloc;
 pub mod caps;
 pub mod error;
 pub mod events;
+pub mod frame;
 pub mod policy;
 pub mod provisioning;
 pub mod traits;
@@ -27,6 +28,7 @@ pub use caps::{
 };
 pub use error::MediamasterError;
 pub use events::{EventPublisher, HardwareEvent};
+pub use frame::{FrameFlags, FrameRef};
 pub use policy::{BackdropPolicy, BackdropSelect, EvictOrder, RetentionPolicy};
 pub use provisioning::{MaintenanceLease, MediaCapabilityBundleV1};
 #[allow(deprecated)]

@@ -46,9 +46,6 @@ pub struct PagingJitterBuffer {
     last_sample: f32,
     /// Set once an underrun fade has fully completed; cleared when data resumes.
     faded_out: bool,
-    /// Optional event bus to publish underrun/overrun events.
-    event_bus: Option<std::sync::Arc<mediamaster_bus::EventBus>>,
-    label: String,
 }
 
 impl PagingJitterBuffer {
@@ -66,8 +63,6 @@ impl PagingJitterBuffer {
             fade_total: ((sr as u64 * FADE_MS as u64) / 1000) as usize,
             last_sample: 0.0,
             faded_out: false,
-            event_bus: None,
-            label: "paging-jitter".to_string(),
         }
     }
 
@@ -76,39 +71,17 @@ impl PagingJitterBuffer {
         Self::new(DEFAULT_SAMPLE_RATE, DEFAULT_PREBUFFER_MS)
     }
 
-    /// Attach an [`EventBus`] to emit buffer events.
-    pub fn with_event_bus(mut self, bus: std::sync::Arc<mediamaster_bus::EventBus>) -> Self {
-        self.event_bus = Some(bus);
-        self
-    }
-
-    /// Set a custom label for event reporting.
-    pub fn with_label(mut self, label: impl Into<String>) -> Self {
-        self.label = label.into();
-        self
-    }
-
     /// Push incoming network PCM (as much as fits; drops the oldest-overflow tail).
     pub fn push(&mut self, samples: &[f32]) {
-        let mut overrun_count = 0;
         for &s in samples {
             // If full, drop one sample to make room (never allocate).
             if self.ring.len() == self.ring.capacity() {
                 let _ = self.ring.pop();
-                overrun_count += 1;
                 // Advance the read cursor by one sample (clamped to ring length).
                 self.read_frac = (self.read_frac + 1.0).min(self.ring.len() as f64);
             }
             let _ = self.ring.push(s);
             self.last_sample = s;
-        }
-        if overrun_count > 0 {
-            if let Some(bus) = &self.event_bus {
-                let _ = bus.publish(mediamaster_core::events::HardwareEvent::AudioOverrun {
-                    source: self.label.clone(),
-                    dropped_frames: overrun_count,
-                });
-            }
         }
         self.seen += samples.len();
         if !self.started && self.seen >= self.prebuffer_threshold {
@@ -176,12 +149,6 @@ impl PagingJitterBuffer {
 
         if self.ring.len() == 0 {
             // Starved: begin the fade-out instead of a hard cut (no click).
-            if let Some(bus) = &self.event_bus {
-                let _ = bus.publish(mediamaster_core::events::HardwareEvent::AudioUnderrun {
-                    source: self.label.clone(),
-                    dropped_frames: 1,
-                });
-            }
             self.fade_remaining = self.fade_total.max(1);
             return self.pop_output();
         }
@@ -241,115 +208,6 @@ impl Default for PagingJitterBuffer {
     }
 }
 
-/// An `AudioSource` adapter wrapping a [`PagingJitterBuffer`].
-///
-/// Can be attached as a priority zone input or directly into a [`Mixer`](crate::Mixer).
-/// Optionally emits `AudioDuckRequest` events when paging audio begins arriving,
-/// triggering automatic ducking across other zones via the paging-duck loop in `mediamaster-agent`.
-pub struct PagingSource {
-    buffer: std::sync::Mutex<PagingJitterBuffer>,
-    label: String,
-    ducking_profile: Option<crate::ducking::DuckingProfile>,
-    event_bus: Option<std::sync::Arc<mediamaster_bus::EventBus>>,
-    was_active: std::sync::atomic::AtomicBool,
-}
-
-impl PagingSource {
-    /// Create a new `PagingSource` wrapping a [`PagingJitterBuffer`].
-    pub fn new(
-        jitter: PagingJitterBuffer,
-        label: impl Into<String>,
-    ) -> Result<Self, mediamaster_core::error::MediamasterError> {
-        let label = label.into();
-        if label.is_empty() {
-            return Err(mediamaster_core::error::MediamasterError::Audio(
-                "paging source label cannot be empty".into(),
-            ));
-        }
-        Ok(Self {
-            buffer: std::sync::Mutex::new(jitter),
-            label,
-            ducking_profile: None,
-            event_bus: None,
-            was_active: std::sync::atomic::AtomicBool::new(false),
-        })
-    }
-
-    /// Configure automatic ducking when paging stream is active.
-    pub fn with_auto_ducking(
-        mut self,
-        profile: crate::ducking::DuckingProfile,
-        bus: std::sync::Arc<mediamaster_bus::EventBus>,
-    ) -> Self {
-        self.ducking_profile = Some(profile);
-        self.event_bus = Some(bus);
-        self
-    }
-
-    /// Push network PCM into the jitter buffer. If auto-ducking is configured and
-    /// this activates the stream, an `AudioDuckRequest` event is published.
-    pub fn push(&self, samples: &[f32]) {
-        let mut jb = self.buffer.lock().unwrap_or_else(|p| p.into_inner());
-        jb.push(samples);
-        if jb.is_primed()
-            && !self
-                .was_active
-                .swap(true, std::sync::atomic::Ordering::Relaxed)
-        {
-            if let (Some(profile), Some(bus)) = (&self.ducking_profile, &self.event_bus) {
-                let _ = bus.publish(mediamaster_core::events::HardwareEvent::AudioDuckRequest {
-                    source: self.label.clone(),
-                    ducking: profile.target,
-                    until: profile.duration_ms,
-                });
-            }
-        }
-    }
-
-    /// Access the underlying jitter buffer (e.g. to inspect fill ratio).
-    pub fn fill_ratio(&self) -> f64 {
-        self.buffer
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
-            .fill_ratio()
-    }
-}
-
-impl mediamaster_core::traits::AudioSource for PagingSource {
-    fn read_pcm(&self, buffer: &mut [f32]) -> usize {
-        let mut jb = self.buffer.lock().unwrap_or_else(|p| p.into_inner());
-        let mut non_zero = false;
-        for slot in buffer.iter_mut() {
-            let s = jb.pop_output();
-            *slot = s;
-            if s.abs() > 1e-6 {
-                non_zero = true;
-            }
-        }
-
-        if !non_zero
-            && self
-                .was_active
-                .swap(false, std::sync::atomic::Ordering::Relaxed)
-        {
-            // Paging stream went silent / released. Publish release duck request if configured.
-            if let (Some(profile), Some(bus)) = (&self.ducking_profile, &self.event_bus) {
-                let _ = bus.publish(mediamaster_core::events::HardwareEvent::AudioDuckRequest {
-                    source: self.label.clone(),
-                    ducking: 1.0,
-                    until: profile.duration_ms,
-                });
-            }
-        }
-
-        buffer.len()
-    }
-
-    fn label(&self) -> &str {
-        &self.label
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -404,59 +262,5 @@ mod tests {
         jb.push(&vec![0.1; n]);
         let step = jb.resample_step();
         assert!((step - 1.0).abs() < 1e-3, "step was {step}");
-    }
-
-    #[test]
-    fn paging_source_auto_ducks_and_releases() {
-        use mediamaster_core::events::HardwareEvent;
-        use mediamaster_core::traits::AudioSource;
-
-        let bus = std::sync::Arc::new(mediamaster_bus::EventBus::new(16));
-        let mut rx = bus.subscribe();
-
-        let jb = PagingJitterBuffer::new(1000, 10);
-        let profile = crate::ducking::DuckingProfile {
-            curve: crate::ducking::DuckingCurve::Linear,
-            duration_ms: 100,
-            target: 0.1,
-        };
-        let src = PagingSource::new(jb, "pager")
-            .unwrap()
-            .with_auto_ducking(profile, bus.clone());
-
-        // Push enough to prime
-        src.push(&[0.8; 20]);
-
-        // EventBus should have received duck request
-        let evt = rx.try_recv().expect("expected duck request");
-        match evt {
-            HardwareEvent::AudioDuckRequest {
-                source,
-                ducking,
-                until,
-            } => {
-                assert_eq!(source, "pager");
-                assert_eq!(ducking, 0.1);
-                assert_eq!(until, 100);
-            }
-            _ => panic!("wrong event"),
-        }
-
-        // Drain the paging buffer
-        let mut buf = [0.0f32; 100];
-        let _ = src.read_pcm(&mut buf);
-        let _ = src.read_pcm(&mut buf);
-
-        // When it drops to silence, release event should be emitted
-        let evt = rx.try_recv().expect("expected release request");
-        match evt {
-            HardwareEvent::AudioDuckRequest {
-                source, ducking, ..
-            } => {
-                assert_eq!(source, "pager");
-                assert_eq!(ducking, 1.0);
-            }
-            _ => panic!("wrong event"),
-        }
     }
 }
