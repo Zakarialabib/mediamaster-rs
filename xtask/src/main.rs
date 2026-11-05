@@ -107,7 +107,10 @@ fn publish(args: &[String]) -> ExitCode {
             cmd.arg("--dry-run");
         }
 
-        println!("\nxtask: cargo publish -p {name}{}", if dry_run { " --dry-run" } else { "" });
+        println!(
+            "\nxtask: cargo publish -p {name}{}",
+            if dry_run { " --dry-run" } else { "" }
+        );
         match cmd.status() {
             Ok(status) if status.success() => {}
             Ok(status) => {
@@ -121,7 +124,10 @@ fn publish(args: &[String]) -> ExitCode {
         }
     }
 
-    println!("\nxtask: publish complete ({} crate(s))", PUBLISH_ORDER.len());
+    println!(
+        "\nxtask: publish complete ({} crate(s))",
+        PUBLISH_ORDER.len()
+    );
     ExitCode::SUCCESS
 }
 
@@ -142,16 +148,30 @@ async fn hw_test() -> ExitCode {
     let internal_rf = rf.enumerate_internal_rf_devices();
     let external_rf = rf.enumerate_external_rf_devices();
 
-    println!("  audio    : {} internal, {} external", internal_audio.len(), external_audio.len());
-    println!("  sensors  : {} internal, {} external", internal_sensors.len(), external_sensors.len());
-    println!("  rf       : {} internal, {} external", internal_rf.len(), external_rf.len());
+    println!(
+        "  audio    : {} internal, {} external",
+        internal_audio.len(),
+        external_audio.len()
+    );
+    println!(
+        "  sensors  : {} internal, {} external",
+        internal_sensors.len(),
+        external_sensors.len()
+    );
+    println!(
+        "  rf       : {} internal, {} external",
+        internal_rf.len(),
+        external_rf.len()
+    );
 
     // Drive one event across the async plane and confirm the router observed it.
     let bus = EventBus::new(32);
     let mut rx = bus.subscribe();
     let handlers = EventHandlers::new(std::sync::Arc::new(AudioBridge::new()));
 
-    let event = HardwareEvent::SensorContextChange { state: RoomState::Empty };
+    let event = HardwareEvent::SensorContextChange {
+        state: RoomState::Empty,
+    };
     if !bus.publish(event.clone()) {
         eprintln!("xtask: bus dropped the event (no subscriber)");
         return ExitCode::FAILURE;
