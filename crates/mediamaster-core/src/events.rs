@@ -41,6 +41,8 @@ pub enum HardwareEvent {
         lux_rate_of_change: f32,
         rf_burst_frequency: f32,
     },
+    /// A hardware codec slot lease was revoked (due to driver failure, device disconnect, or health probe failure).
+    SlotRevoked { slot_id: u64, reason: String },
 }
 
 impl HardwareEvent {
@@ -52,6 +54,7 @@ impl HardwareEvent {
             HardwareEvent::CctvMotionDetected { .. } => "CctvMotionDetected",
             HardwareEvent::ZoneChanged { .. } => "ZoneChanged",
             HardwareEvent::EnvironmentalDrift { .. } => "EnvironmentalDrift",
+            HardwareEvent::SlotRevoked { .. } => "SlotRevoked",
         }
     }
 }

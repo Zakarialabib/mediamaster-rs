@@ -18,6 +18,11 @@ windows = { version = "0.62", optional = true, features = ["Win32_Media_MediaFou
 ndk-context = { version = "0.1", optional = true }
 ndk = { version = "0.7", optional = true }
 
+[dev-dependencies]
+serde = { workspace = true }
+serde_json = "1.0"
+mediamaster-core = { path = "../mediamaster-core", version = "0.3.0", features = ["serde-sync"] }
+
 # Native codec discovery backends (opt-in, platform-specific).
 [features]
 default = []

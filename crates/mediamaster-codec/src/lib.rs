@@ -16,18 +16,21 @@
 //!     max_hw_decoder_instances: 2,
 //!     ..CapsMatrix::default()
 //! });
-//! slots.acquire(SlotKind::Decoder).expect("first decoder slot");
-//! slots.acquire(SlotKind::Decoder).expect("second decoder slot");
+//! let _l1 = slots.acquire(SlotKind::Decoder).expect("first decoder slot");
+//! let _l2 = slots.acquire(SlotKind::Decoder).expect("second decoder slot");
 //! assert!(slots.acquire(SlotKind::Decoder).is_err()); // budget spent
 //! ```
 
 pub mod discovery;
 pub mod slot_budget;
 
-#[cfg(feature = "mf")]
 pub mod mf_actor;
 #[cfg(feature = "mediacodec")]
 pub mod ndk_codec;
 
 pub use discovery::{CapsDiscovery, SoftwareCapsDiscovery};
-pub use slot_budget::{degrade_until, next_tier, CodecSlotManager, SlotExhausted, SlotKind};
+pub use mf_actor::FramePacket;
+pub use slot_budget::{
+    degrade_until, next_tier, CodecBackend, CodecSlotManager, HealthProbe, LeaseInfo,
+    SlotExhausted, SlotKind, SlotLease,
+};

@@ -81,6 +81,7 @@ impl LayoutOrchestrator {
 
         let mut assignments = Vec::with_capacity(layout.streams.len());
         let mut slot_mgr = CodecSlotManager::new(&self.caps);
+        let mut held_leases = Vec::new();
 
         match rec_result {
             Ok(recommendation) => {
@@ -103,16 +104,20 @@ impl LayoutOrchestrator {
                         (act.target_tier, desc)
                     } else {
                         // Check slot manager budget
-                        if slot_mgr.acquire(SlotKind::Decoder).is_ok() {
-                            (DegradationTier::Tier1HwSurface, stream.clone())
-                        } else {
-                            // Slot exhausted: degrade tier
-                            requires_degradation = true;
-                            let chosen = degrade_until(DegradationTier::Tier1HwSurface, |t| {
-                                t > DegradationTier::Tier1HwSurface
-                            })
-                            .unwrap_or(DegradationTier::Tier4PosterFallback);
-                            (chosen, stream.clone())
+                        match slot_mgr.acquire(SlotKind::Decoder) {
+                            Ok(lease) => {
+                                held_leases.push(lease);
+                                (DegradationTier::Tier1HwSurface, stream.clone())
+                            }
+                            Err(_) => {
+                                // Slot exhausted: degrade tier
+                                requires_degradation = true;
+                                let chosen = degrade_until(DegradationTier::Tier1HwSurface, |t| {
+                                    t > DegradationTier::Tier1HwSurface
+                                })
+                                .unwrap_or(DegradationTier::Tier4PosterFallback);
+                                (chosen, stream.clone())
+                            }
                         }
                     };
 
@@ -134,11 +139,15 @@ impl LayoutOrchestrator {
                 // No historical entry or empty store: enforce CapsMatrix slot budget directly
                 let mut requires_degradation = false;
                 for (idx, stream) in layout.streams.iter().enumerate() {
-                    let tier = if slot_mgr.acquire(SlotKind::Decoder).is_ok() {
-                        DegradationTier::Tier1HwSurface
-                    } else {
-                        requires_degradation = true;
-                        DegradationTier::Tier4PosterFallback
+                    let tier = match slot_mgr.acquire(SlotKind::Decoder) {
+                        Ok(lease) => {
+                            held_leases.push(lease);
+                            DegradationTier::Tier1HwSurface
+                        }
+                        Err(_) => {
+                            requires_degradation = true;
+                            DegradationTier::Tier4PosterFallback
+                        }
                     };
 
                     assignments.push(ActiveStreamAssignment {

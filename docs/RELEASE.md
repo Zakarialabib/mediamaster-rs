@@ -64,6 +64,17 @@ cargo clippy --workspace --no-default-features --all-targets -- -D warnings
 cargo test --workspace --no-default-features
 ```
 
+### Hardware Device Validation & Quirks Corpus Seeding (Real Device Pre-Flight)
+
+Before publishing, execute the ignored device probe harness on physical target
+hardware (Windows, Linux, Android) to validate hardware codec limits, verify that
+the reported maximum matches reality within tolerance, and generate machine-readable
+JSON reports for quirks-corpus seed data:
+
+```bash
+cargo test -p mediamaster-codec --test device_probe -- --ignored --nocapture
+```
+
 ## 5. Publish order (dependency-first, wait for crates.io to index between steps)
 
 ```bash

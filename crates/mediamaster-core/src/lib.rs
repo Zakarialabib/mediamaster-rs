@@ -20,7 +20,9 @@ pub mod provisioning;
 pub mod traits;
 pub mod types;
 
-pub use caps::{CapsMatrix, Codec, CodecCaps, DegradationTier, PixelFormat};
+pub use caps::{
+    CapsMatrix, Codec, CodecCaps, Confidence, DegradationTier, ObservedCodecCaps, PixelFormat,
+};
 pub use error::MediamasterError;
 pub use events::{EventPublisher, HardwareEvent};
 pub use provisioning::{MaintenanceLease, MediaCapabilityBundleV1};
