@@ -6,6 +6,7 @@ use alloc::vec::Vec;
 #[cfg(feature = "serde-sync")]
 use serde::{Deserialize, Serialize};
 
+use crate::caps::Codec;
 use crate::types::{BoundingBox, RadioBurst, RoomState};
 
 /// Every event the ecosystem publishes and consumers subscribe to.
@@ -41,6 +42,31 @@ pub enum HardwareEvent {
         lux_rate_of_change: f32,
         rf_burst_frequency: f32,
     },
+    /// A hardware decoder slot was forcibly revoked (e.g. driver reclamation).
+    SlotRevoked {
+        device_class: String,
+        codec: Codec,
+        reason: String,
+    },
+    /// Decoder pipeline starvation or frame drop storm detected.
+    StarvationDetected {
+        device_class: String,
+        codec: Codec,
+        width: u32,
+        height: u32,
+        fps: u32,
+        concurrent_streams: u32,
+    },
+    /// Successful decode heartbeat demonstrating healthy throughput over a duration.
+    DecodeHeartbeat {
+        device_class: String,
+        codec: Codec,
+        width: u32,
+        height: u32,
+        fps: u32,
+        concurrent_streams: u32,
+        duration_ms: u64,
+    },
 }
 
 impl HardwareEvent {
@@ -52,6 +78,9 @@ impl HardwareEvent {
             HardwareEvent::CctvMotionDetected { .. } => "CctvMotionDetected",
             HardwareEvent::ZoneChanged { .. } => "ZoneChanged",
             HardwareEvent::EnvironmentalDrift { .. } => "EnvironmentalDrift",
+            HardwareEvent::SlotRevoked { .. } => "SlotRevoked",
+            HardwareEvent::StarvationDetected { .. } => "StarvationDetected",
+            HardwareEvent::DecodeHeartbeat { .. } => "DecodeHeartbeat",
         }
     }
 }

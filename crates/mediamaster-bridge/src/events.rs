@@ -79,7 +79,10 @@ impl EventHandlers {
             }
             HardwareEvent::ZoneChanged { .. }
             | HardwareEvent::CctvMotionDetected { .. }
-            | HardwareEvent::EnvironmentalDrift { .. } => {}
+            | HardwareEvent::EnvironmentalDrift { .. }
+            | HardwareEvent::SlotRevoked { .. }
+            | HardwareEvent::StarvationDetected { .. }
+            | HardwareEvent::DecodeHeartbeat { .. } => {}
         }
     }
 
