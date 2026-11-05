@@ -28,9 +28,9 @@ mediamaster-rs/
 | `mediamaster-agent` | `mediamaster-agent` | 0.3.0 | ✅ | Live Paging & Sensor Ducking Loop — control plane |
 | `mediamaster-engine` | `mediamaster-engine` | 0.3.0 | ✅ | Coordination layer: `AudioBus`, `TranscodePlan`, `EngineSelector` |
 | `mediamaster-rag` | `mediamaster-rag` | 0.1.0 | ✅ | Acoustic profiles, codec matrix, sensor-context knowledge store |
-| `mediamaster-rf` | `mediamaster-rf` | 0.2.0 | ✅ (pub. only) | OOK/ASK demodulator, 3-stage pipeline, real parser |
-| `mediamaster-sensors` | `mediamaster-sensors` | 0.2.0 | ✅ | Sensor reading, debounce, fusion context, hardware (`hw`) backends |
-| `mediamaster-bridge` | `mediamaster-bridge` | 0.1.0 | ✅ | App-integration facade: `AudioBridge`, `SensorBridge`, `RfBridge`, enumerators, event bus |
+| `mediamaster-rf` | `mediamaster-rf` | 0.3.0 | 0.2.0 pub (0.3.0 pending) | OOK/ASK demodulator, 3-stage pipeline, real parser |
+| `mediamaster-sensors` | `mediamaster-sensors` | 0.3.0 | 0.2.0 pub (0.3.0 pending) | Sensor reading, debounce, fusion context, hardware (`hw`) backends |
+| `mediamaster-bridge` | `mediamaster-bridge` | 0.2.0 | 0.1.0 pub (0.2.0 pending) | App-integration facade: `AudioBridge`, `SensorBridge`, `RfBridge`, enumerators, event bus |
 
 ## Native codec actors (scaffolded, device-validation-pending)
 
