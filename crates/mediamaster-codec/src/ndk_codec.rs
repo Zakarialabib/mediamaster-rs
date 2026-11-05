@@ -10,7 +10,6 @@
 //! ```
 
 use std::os::raw::c_void;
-use std::ptr::NonNull;
 
 /// Safe, drop-eligible wrapper around an `ANativeWindow*`, mirroring the RAII
 /// ownership law: release the native window when the guard drops, so the surface
@@ -29,13 +28,11 @@ impl SafeNativeWindow {
 impl Drop for SafeNativeWindow {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
-            unsafe {
-                // ANativeWindow_release detaches the surface.
-                // We use the ndk crate's FFI binding.
-                // Since ndk::native_window::NativeWindow owns the release,
-                // we call the raw FFI here for the scaffold.
-                // In production, use ndk::native_window::NativeWindow.
-            }
+            // ANativeWindow_release detaches the surface.
+            // We use the ndk crate's FFI binding.
+            // Since ndk::native_window::NativeWindow owns the release,
+            // we call the raw FFI here for the scaffold.
+            // In production, use ndk::native_window::NativeWindow.
         }
     }
 }
@@ -69,8 +66,7 @@ pub struct NdkCodec {
 impl Drop for NdkCodec {
     fn drop(&mut self) {
         // The surface is released before `AMediaCodec_release`, so the codec's
-        // surface reference is detached first.
-        drop(&mut self.surface);
+        // surface reference is detached first when `self.surface` drops.
     }
 }
 

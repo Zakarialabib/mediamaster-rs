@@ -48,6 +48,15 @@ pub struct TranscodePlan {
     pub why: String,
 }
 
+/// A typed HLS encoding job produced by `TranscodePlan::to_hls_job`.
+#[cfg(feature = "hls")]
+pub struct HlsJob {
+    pub engine: crate::engine_selector::Engine,
+    pub tier: mediamaster_core::DegradationTier,
+    pub rendition: crate::hls::RenditionSpec,
+    pub segmenter_config: crate::hls::HlsSegmenterConfig,
+}
+
 impl TranscodePlan {
     /// Decide the best transcode plan for a source of `width x height`, given
     /// the device's `CapsMatrix` (decoder + encoder capability, per-resolution
@@ -96,6 +105,76 @@ impl TranscodePlan {
             profile,
             resolution: (width, height),
             why: TranscodePlan::why(hardware, codec),
+        }
+    }
+
+    /// Produce a typed [`HlsJob`] routed through an [`EngineSelector`], acquiring
+    /// hardware permits from a [`mediamaster_codec::CodecSlotManager`] with graceful fallback.
+    #[cfg(feature = "hls")]
+    pub fn to_hls_job(
+        &self,
+        selector: &dyn crate::engine_selector::EngineSelector,
+        slots: &mut mediamaster_codec::CodecSlotManager,
+        caps: &mediamaster_core::CapsMatrix,
+        container: crate::hls::HlsContainer,
+    ) -> HlsJob {
+        let engine = selector.select_encoder(caps, self.profile.codec);
+        let tier = if matches!(
+            engine,
+            crate::engine_selector::Engine::MediaFoundation
+                | crate::engine_selector::Engine::AndroidNdk
+        ) {
+            if slots.acquire(mediamaster_codec::SlotKind::Encoder).is_ok() {
+                mediamaster_core::DegradationTier::Tier1HwSurface
+            } else {
+                mediamaster_codec::degrade_until(
+                    mediamaster_core::DegradationTier::Tier2HwByteBuffer,
+                    |t| match t {
+                        mediamaster_core::DegradationTier::Tier1HwSurface
+                        | mediamaster_core::DegradationTier::Tier2HwByteBuffer => {
+                            slots.can_acquire(mediamaster_codec::SlotKind::Encoder)
+                        }
+                        mediamaster_core::DegradationTier::Tier3SharedTextureMux
+                        | mediamaster_core::DegradationTier::Tier4PosterFallback => true,
+                    },
+                )
+                .unwrap_or(mediamaster_core::DegradationTier::Tier4PosterFallback)
+            }
+        } else {
+            mediamaster_core::DegradationTier::Tier2HwByteBuffer
+        };
+
+        let core_codec = match self.profile.codec {
+            Codec::H264 => mediamaster_core::Codec::H264,
+            Codec::Hevc => mediamaster_core::Codec::Hevc,
+            Codec::Av1 => mediamaster_core::Codec::Av1,
+        };
+
+        let rendition = crate::hls::RenditionSpec::new(
+            format!("{}p", self.resolution.1),
+            self.resolution.0,
+            self.resolution.1,
+            self.profile.target_bitrate_bps,
+            core_codec,
+            container,
+        );
+
+        let segmenter_config = crate::hls::HlsSegmenterConfig {
+            target_duration_ms: 2000,
+            container,
+            low_latency: false,
+            part_target_duration_ms: 500,
+            segment_prefix: format!("stream_{}p", self.resolution.1),
+            width: self.resolution.0,
+            height: self.resolution.1,
+            bitrate_bps: self.profile.target_bitrate_bps,
+        };
+
+        HlsJob {
+            engine,
+            tier,
+            rendition,
+            segmenter_config,
         }
     }
 

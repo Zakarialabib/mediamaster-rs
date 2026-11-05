@@ -17,6 +17,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
+      - name: Install ALSA dev headers
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
       - name: Check
         run: cargo check --workspace
       - name: Format
@@ -25,3 +27,22 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace
+      - name: Install no_std target
+        run: rustup target add thumbv7m-none-eabi
+      - name: Check core no_std
+        run: cargo check -p mediamaster-core --target thumbv7m-none-eabi --no-default-features
+      - name: Check core no_std with serde-sync
+        run: cargo check -p mediamaster-core --target thumbv7m-none-eabi --features serde-sync
+
+  wasm-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+      - name: Add wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Check wasm32 targets
+        run: cargo check --target wasm32-unknown-unknown -p mediamaster-core -p mediamaster-probe -p mediamaster-bus -p mediamaster-rag --all-features

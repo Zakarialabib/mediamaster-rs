@@ -392,6 +392,28 @@ where
                 Err(err) => {
                     eprintln!("MF Actor error: {err}");
                 }
+              }
+          }
+
+        // On scope exit: `_guard` drops (COM surfaces released) -> MFShutdown ->
+        // CoUninitialize. Drop-order law: COM surfaces, then shutdown, then RT.
+        loop {
+            match rx.recv() {
+                Ok(MfCommand::Stop) => break,
+                Ok(MfCommand::Initialize(_cfg)) => {
+                    // MFStartup + IMFSourceReader / MFT enumeration go here.
+                    // `guard` is live across this call so its Drop runs after
+                    // any MFShutdown if initialisation fails.
+                    let _ = on_event(
+                        MfRuntimeToken(true),
+                        &mut MfRuntimeGuard {
+                            source_reader: None,
+                            sink_writer: None,
+                            transform: None,
+                        },
+                    );
+
+                }
             }
         }
 

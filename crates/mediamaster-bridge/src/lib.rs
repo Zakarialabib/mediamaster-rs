@@ -55,8 +55,9 @@ pub use mediamaster_rf as rf_domain;
 pub use mediamaster_sensors as sensors_domain;
 
 // Re-export the core traits the applications implement
-pub use mediamaster_core::traits::{AsyncSensor, AudioSource, SignalDetector};
+pub use mediamaster_core::traits::{AudioSource, SignalDetector};
 pub use mediamaster_core::types::{RoomState, SensorReading, Signal};
+pub use mediamaster_sensors::AsyncSensor;
 
 // Re-export the bridge entry points
 pub use audio::AudioBridge;

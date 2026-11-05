@@ -142,6 +142,44 @@ impl CapsMatrix {
     }
 }
 
+/// Verdict on an observed capability based on runtime performance/telemetry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde-sync", derive(Serialize, Deserialize))]
+pub enum CapabilityVerdict {
+    /// Confirmed capable under observed conditions.
+    Confirmed,
+    /// Borderline stability (intermittent frame drops or near threshold).
+    Borderline,
+    /// Refuted: hardware failed or repeatedly starved under load.
+    Refuted,
+}
+
+/// Runtime observed capability of a codec on a hardware platform.
+///
+/// Records empirical decode/encode metrics across streams to detect and
+/// compensate for hardware driver lies.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-sync", derive(Serialize, Deserialize))]
+pub struct ObservedCodecCaps {
+    /// SoC/GPU family hash or class (NOT serial numbers — privacy).
+    pub device_class: String,
+    pub codec: Codec,
+    pub profile: String,
+    pub level: String,
+    pub max_width: u32,
+    pub max_height: u32,
+    pub max_fps: u32,
+    pub streams_concurrently_observed: u32,
+    pub starvation_events: u32,
+    pub verdict: CapabilityVerdict,
+    /// Empirical confidence score in `[0.0, 1.0]`.
+    pub confidence: f32,
+    /// Observation window start in epoch milliseconds.
+    pub observed_at_start_ms: u64,
+    /// Observation window end in epoch milliseconds.
+    pub observed_at_end_ms: u64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

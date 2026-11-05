@@ -16,15 +16,20 @@ extern crate alloc;
 pub mod caps;
 pub mod error;
 pub mod events;
+pub mod policy;
 pub mod provisioning;
 pub mod traits;
 pub mod types;
 
 pub use caps::{
-    CapsMatrix, Codec, CodecCaps, Confidence, DegradationTier, ObservedCodecCaps, PixelFormat,
+    CapabilityVerdict, CapsMatrix, Codec, CodecCaps, Confidence, DegradationTier, ObservedCodecCaps,
+    PixelFormat,
 };
 pub use error::MediamasterError;
 pub use events::{EventPublisher, HardwareEvent};
+pub use policy::{BackdropPolicy, BackdropSelect, EvictOrder, RetentionPolicy};
 pub use provisioning::{MaintenanceLease, MediaCapabilityBundleV1};
-pub use traits::{AsyncSensor, AudioSource, SensorReading, Signal, SignalDetector};
+#[allow(deprecated)]
+pub use traits::AsyncSensor;
+pub use traits::{AudioSource, SensorReading, Signal, SignalDetector};
 pub use types::{AudioTarget, BoundingBox, RadioBurst, RoomState};
