@@ -175,12 +175,10 @@ impl Agent {
             }
             HardwareEvent::ZoneChanged { .. }
             | HardwareEvent::CctvMotionDetected { .. }
-            | HardwareEvent::FrameDrop { .. } => {
             | HardwareEvent::PosterGenerated { .. }
             | HardwareEvent::EvictionPlanned { .. }
-            | HardwareEvent::AudioUnderrun { .. }
-            | HardwareEvent::AudioOverrun { .. } => {
-                // Zone/Cctv/Poster/Eviction/Audio buffer events are recording/audit-only for the agent.
+            | HardwareEvent::FrameDrop { .. } => {
+                // Zone/Cctv/Poster/Eviction/FrameDrop events are recording/audit-only for the agent.
             }
             HardwareEvent::EnvironmentalDrift {
                 motion_density,
