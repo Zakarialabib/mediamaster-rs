@@ -32,10 +32,10 @@ IqBatch (loop)         MagnitudeDetector::detect() → Signal   (stage 2)
 
 ## Feature flags
 
-- `rtl-sdr` — RTL-SDR backend (via the `rtlsdr` crate). **NOTE**: This feature is
-  currently **abandoned** — the upstream `rtlsdr 0.1.4` crate's API does not match the
+- `rtl-sdr-experimental` — RTL-SDR backend (via the `rtlsdr` crate). **NOTE**: This feature is
+  currently **abandoned/experimental** — the upstream `rtlsdr 0.1.4` crate's API does not match the
   expected signature, and no compatible async version is available. The `Pipeline` and
-  demodulator are feature-complete but do not compile with `rtl-sdr`.
+  demodulator are feature-complete.
 - `std` (default) — includes `std` support.
 - `alloc` — `no_std` + `alloc` builds.
 

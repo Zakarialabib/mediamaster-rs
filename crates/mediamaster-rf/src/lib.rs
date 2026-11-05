@@ -9,7 +9,9 @@ pub mod iq_source;
 pub mod parser;
 pub mod pipeline;
 
-#[cfg(feature = "rtl-sdr")]
+// Note: RTL-SDR hardware backend (`src/rtlsdr.rs`) is preserved for future modernization
+// when an async driver is available.
+#[cfg(any())]
 pub mod rtlsdr;
 
 pub use demod::OokDemodulator;
