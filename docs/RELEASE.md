@@ -68,6 +68,9 @@ cargo clippy --workspace --all-targets -- -D warnings
 # 3. Unit and integration tests
 cargo test --workspace
 
+# Hardware Device Validation & Quirks Corpus Seeding (Real Device Pre-Flight)
+cargo test -p mediamaster-codec --test device_probe -- --ignored --nocapture
+
 # 4. no_std target check
 cargo check -p mediamaster-core --target thumbv7em-none-eabihf --no-default-features
 cargo check -p mediamaster-core --target riscv32imac-unknown-none-elf --no-default-features

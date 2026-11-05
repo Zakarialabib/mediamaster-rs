@@ -1,25 +1,15 @@
 [package]
 name = "mediamaster-frame"
 version = "0.3.0"
-description = "Frame-level packet descriptors, zero-copy Arc buffers, bounded rings, and fan-out"
+description = "Frame and packet vocabulary (FramePacket, channels) for mediamaster-rs"
 authors = ["SignageMaster Team <team@signage-master.example.com>"]
 edition = "2021"
 rust-version = "1.95"
 license = "MIT OR Apache-2.0"
-repository.workspace = true
-keywords = ["media", "video", "frame", "ringbuf", "fanout"]
-categories = ["multimedia::video", "multimedia::audio"]
 
 [dependencies]
 mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
-mediamaster-bus = { path = "../mediamaster-bus", version = "0.3.0" }
-ringbuf = { version = "0.3", features = ["alloc"] }
-serde = { workspace = true, optional = true }
 thiserror = { workspace = true }
-
-[features]
-default = []
-serde = ["dep:serde"]
 
 [lib]
 name = "mediamaster_frame"

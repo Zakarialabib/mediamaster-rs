@@ -85,7 +85,8 @@ impl EventHandlers {
             | HardwareEvent::SlotRevoked { .. }
             | HardwareEvent::StarvationDetected { .. }
             | HardwareEvent::DecodeHeartbeat { .. }
-            | HardwareEvent::FrameDrop { .. } => {}
+            | HardwareEvent::AudioUnderrun { .. }
+            | HardwareEvent::AudioOverrun { .. } => {}
         }
     }
 
