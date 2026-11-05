@@ -20,6 +20,8 @@ mediamaster-bridge = { path = "../mediamaster-bridge", version = "0.2.0" }
 mediamaster-rag = { path = "../mediamaster-rag", version = "0.1.0" }
 mediamaster-codec = { path = "../mediamaster-codec", version = "0.3.0" }
 thiserror = { workspace = true }
+serde = { workspace = true }
+toml = { workspace = true }
 
 [dependencies.tokio]
 version = "1"

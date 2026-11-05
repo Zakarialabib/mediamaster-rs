@@ -13,9 +13,11 @@
 //! only subscribes, so it is runtime-agnostic and trivially testable.
 
 mod agent;
+pub mod automation;
 pub mod layout;
 
 pub use agent::{AdaptiveDuckingConfig, Agent, AgentError};
+pub use automation::{ActionTarget, AutomationRule, AutomationRuleSet, FusionOutputDriver};
 pub use layout::{ActiveLayoutPlan, ActiveStreamAssignment, LayoutOrchestrator};
 
 pub use mediamaster_audio::ducking::{DuckingCurve, DuckingProfile};

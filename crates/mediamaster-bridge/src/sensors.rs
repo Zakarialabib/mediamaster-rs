@@ -7,12 +7,12 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use mediamaster_core::traits::AsyncSensor;
 use mediamaster_core::types::SensorReading;
 use mediamaster_core::MediamasterError;
 use mediamaster_sensors::fusion::FusionEngine;
+use mediamaster_sensors::AsyncSensor;
 
-/// Bridge from `mediamaster-core::AsyncSensor` → `mediamaster-sensors`.
+/// Bridge from `mediamaster-sensors::AsyncSensor` → `mediamaster-sensors`.
 ///
 /// `SensorBridge` wraps a `FusionEngine` and provides the `AsyncSensor` trait
 /// implementation for the applications.
