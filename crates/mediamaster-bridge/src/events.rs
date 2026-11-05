@@ -80,13 +80,13 @@ impl EventHandlers {
             HardwareEvent::ZoneChanged { .. }
             | HardwareEvent::CctvMotionDetected { .. }
             | HardwareEvent::EnvironmentalDrift { .. }
-            | HardwareEvent::AudioUnderrun { .. }
-            | HardwareEvent::AudioOverrun { .. } => {}
             | HardwareEvent::PosterGenerated { .. }
             | HardwareEvent::EvictionPlanned { .. }
             | HardwareEvent::SlotRevoked { .. }
             | HardwareEvent::StarvationDetected { .. }
-            | HardwareEvent::DecodeHeartbeat { .. } => {}
+            | HardwareEvent::DecodeHeartbeat { .. }
+            | HardwareEvent::AudioUnderrun { .. }
+            | HardwareEvent::AudioOverrun { .. } => {}
         }
     }
 

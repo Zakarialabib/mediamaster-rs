@@ -51,6 +51,7 @@ pub enum HardwareEvent {
     AudioOverrun {
         source: String,
         dropped_frames: usize,
+    },
     /// A poster fallback or backdrop artifact was generated for a visual stream.
     PosterGenerated {
         uri_hint: String,
