@@ -13,6 +13,7 @@
 //! default and publishable path.
 
 pub mod audio_bus;
+pub mod capability_provider;
 pub mod engine_selector;
 #[cfg(feature = "hls")]
 pub mod hls;
@@ -21,6 +22,11 @@ pub mod retention;
 pub mod transcode_plan;
 
 pub use audio_bus::{AudioBus, AudioBusConfig};
+#[cfg(feature = "attest")]
+pub use capability_provider::verify_bundle_attestation;
+pub use capability_provider::{
+    CapabilitySnapshotProvider, SignedCapabilitySnapshot, SnapshotError,
+};
 pub use engine_selector::{Engine, EngineSelector, SoftwareCapsDiscovery};
 #[cfg(feature = "hls")]
 pub use hls::{
