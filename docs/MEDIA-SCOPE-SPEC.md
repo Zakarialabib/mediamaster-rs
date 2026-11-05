@@ -148,8 +148,9 @@ pub struct MediaCapabilityBundleV1 {
 > - Keep `mediamaster-bridge` as-is; **skip a separate `mediamaster` facade** (CapsMatrix vocabulary lives in `-core`).
 
 ### Phase 1: Pure-Rust Container & Bitstream Inspector (`mediamaster-probe`) — *first deliverable*
-- Create `crates/probe` (`mediamaster-probe`) using pure-Rust parsers (`mp4parse`, `symphonia-core`, EBML/MKV header reader) to inspect MP4, MKV, WebM, MP3, AAC, FLAC, and WAV files/streams without C FFI.
-- Return `MediaDescriptor` (codec, profile, level, width, height, 10-bit `P010` flag, fps, duration) — zero `ffmpeg` process spawns.
+- Create `crates/mediamaster-probe` using pure-Rust hand-written parsers (`mp4.rs`, `ebml.rs`, `ts.rs`, `audio_containers.rs`, `image.rs`) to inspect MP4, MKV, WebM, MPEG-TS, pure audio containers (MP3, ADTS/AAC, FLAC, WAV/RF64), and still/animated images (JPEG, PNG, GIF, WebP) without C FFI or ffmpeg.
+- Return `MediaDescriptor` (container, brand, duration, video/audio codec, dimensions, profile, level, 10-bit flag, fps, `StillImageInfo{width,height,orientation,animated}`, `pcr`) — zero `ffmpeg` process spawns.
+- Fuzz-safe error handling: malformed inputs return `Err(ProbeError::Truncated/Malformed)` without panic; verified by `proptest` suites and minimal programmatic fixtures (<10KB).
 - Replace `SignageMaster`'s MP4-only `probe.rs` stub with `mediamaster-probe`.
 - **Gate:** `cargo test -p mediamaster-probe --all-features`.
 
