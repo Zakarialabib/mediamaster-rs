@@ -177,7 +177,8 @@ impl Agent {
             | HardwareEvent::CctvMotionDetected { .. }
             | HardwareEvent::AudioUnderrun { .. }
             | HardwareEvent::AudioOverrun { .. } => {
-                // Zone/Cctv/Audio buffer metrics are recording-only for the agent.
+            | HardwareEvent::PosterGenerated { .. }
+            | HardwareEvent::EvictionPlanned { .. } => {
             }
             HardwareEvent::EnvironmentalDrift {
                 motion_density,
@@ -193,6 +194,11 @@ impl Agent {
                     *lux_rate_of_change,
                     *rf_burst_frequency,
                 );
+            }
+            HardwareEvent::SlotRevoked { .. }
+            | HardwareEvent::StarvationDetected { .. }
+            | HardwareEvent::DecodeHeartbeat { .. } => {
+                // Codec telemetry events are consumed by TelemetryIngest in mediamaster-rag.
             }
         }
         Ok(())

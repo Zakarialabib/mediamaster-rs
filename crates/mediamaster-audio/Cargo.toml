@@ -16,6 +16,7 @@ mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
 mediamaster-bus = { path = "../mediamaster-bus", version = "0.3.0" }
 ringbuf = { version = "0.3", features = ["alloc"] }
 serde = { workspace = true }
+thiserror = { workspace = true }
 
 # Audio capture/output backends (enable per target).
 cpal = { version = "0.15", optional = true }
@@ -23,6 +24,13 @@ cpal = { version = "0.15", optional = true }
 # Media decode helpers (optional).
 symphonia = { version = "0.5", optional = true, default-features = false, features = ["isomp4", "mp3", "pcm", "wav"] }
 rubato = { version = "5.0", optional = true }
+
+# Opus audio codec (optional).
+# The `opus` feature links to native libopus (libopus license: BSD-3-Clause).
+# Native FFI is acceptable here as mediamaster-audio already links cpal/symphonia.
+# `opus-hybrid` provides a pure-Rust fallback stub returning `UnsupportedCodec`
+# for targets lacking native FFI.
+opus = { version = "0.4", optional = true }
 
 [features]
 default = []
@@ -32,6 +40,10 @@ audio-cpal = ["cpal"]
 # Decode media assets into PCM (requires a `cpal` target and `ffmpeg`).
 decode = ["dep:symphonia"]
 resample = ["dep:rubato"]
+# Opus decoding via libopus FFI (BSD-3-Clause).
+opus = ["dep:opus"]
+# Pure-Rust fallback stub returning UnsupportedCodec when native FFI is absent.
+opus-hybrid = []
 
 [lib]
 name = "mediamaster_audio"

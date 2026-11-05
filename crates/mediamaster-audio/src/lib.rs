@@ -10,6 +10,7 @@
 pub mod ducking;
 pub mod jitter;
 pub mod mixer;
+pub mod opus_source;
 pub mod sink;
 pub mod source;
 pub mod zones;
@@ -17,6 +18,7 @@ pub mod zones;
 pub use ducking::{AutomationCommand, DuckingCurve, DuckingProfile, IirSmoothing};
 pub use jitter::{PagingJitterBuffer, PagingSource};
 pub use mixer::Mixer;
+pub use opus_source::{OpusError, OpusPagingSource, OPUS_FRAME_SAMPLES_20MS, OPUS_SAMPLE_RATE};
 #[cfg(feature = "audio-cpal")]
 pub use sink::AudioSink;
 pub use sink::LockRead;

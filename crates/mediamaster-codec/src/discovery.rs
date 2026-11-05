@@ -49,9 +49,99 @@ impl CapsDiscovery for SoftwareCapsDiscovery {
     }
 }
 
+/// Known driver quirk rule that overrides advertised capabilities with ground truth.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuirkRule {
+    /// Affected codec.
+    pub codec: Codec,
+    /// Whether hardware acceleration should be disallowed (e.g. broken driver).
+    pub disable_hw: bool,
+    /// Max decoder instances override if capped by driver bugs.
+    pub max_hw_decoder_override: Option<u8>,
+}
+
+/// Capability discovery that layers known driver quirks and telemetry overrides
+/// over a raw [`CapsDiscovery`] source.
+pub struct QuirksAwareDiscovery<D: CapsDiscovery> {
+    inner: D,
+    quirks: Vec<QuirkRule>,
+}
+
+impl<D: CapsDiscovery> QuirksAwareDiscovery<D> {
+    pub fn new(inner: D) -> Self {
+        Self {
+            inner,
+            quirks: Vec::new(),
+        }
+    }
+
+    pub fn with_quirks(inner: D, quirks: Vec<QuirkRule>) -> Self {
+        Self { inner, quirks }
+    }
+
+    pub fn add_quirk(&mut self, quirk: QuirkRule) {
+        self.quirks.push(quirk);
+    }
+}
+
+impl<D: CapsDiscovery> CapsDiscovery for QuirksAwareDiscovery<D> {
+    fn discover(&self) -> CapsMatrix {
+        let mut matrix = self.inner.discover();
+
+        for quirk in &self.quirks {
+            if quirk.disable_hw {
+                for c in &mut matrix.codecs {
+                    if c.codec == quirk.codec {
+                        c.hw_accelerated = false;
+                    }
+                }
+            }
+            if let Some(max_dec) = quirk.max_hw_decoder_override {
+                matrix.max_hw_decoder_instances = max_dec;
+            }
+        }
+
+        matrix
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn quirks_aware_discovery_overrides_matrix() {
+        struct MockDiscovery;
+        impl CapsDiscovery for MockDiscovery {
+            fn discover(&self) -> CapsMatrix {
+                CapsMatrix {
+                    codecs: vec![CodecCaps {
+                        codec: Codec::Hevc,
+                        profile: "Main10".into(),
+                        level: "5.1".into(),
+                        max_width: 3840,
+                        max_height: 2160,
+                        max_fps: 60,
+                        pixel_formats: vec![PixelFormat::P010],
+                        hw_accelerated: true,
+                    }],
+                    max_hw_decoder_instances: 4,
+                    max_hw_encoder_instances: 1,
+                    verified_on_hardware: true,
+                }
+            }
+        }
+
+        let quirks = vec![QuirkRule {
+            codec: Codec::Hevc,
+            disable_hw: true,
+            max_hw_decoder_override: Some(2),
+        }];
+        let disco = QuirksAwareDiscovery::with_quirks(MockDiscovery, quirks);
+        let m = disco.discover();
+        assert!(!m.codec(Codec::Hevc).unwrap().hw_accelerated);
+        assert_eq!(m.max_hw_decoder_instances, 2);
+    }
 
     #[test]
     fn software_discovery_never_claims_hardware() {

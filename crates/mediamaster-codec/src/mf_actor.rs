@@ -20,7 +20,6 @@
 //! MediaFoundation::{IMFSourceReader, IMFSinkWriter, IMFTopology}` COM interface
 //! types; all ownership/drop logic below stays identical.
 
-use std::cell::Cell;
 use std::ptr::NonNull;
 use std::thread;
 
@@ -60,7 +59,7 @@ type COMSurfaceHandle = NonNull<core::ffi::c_void>;
 
 /// Guard's runtime slot: true while COM is initialised on this actor's thread.
 #[derive(Debug, Clone, Copy)]
-pub struct MfRuntimeToken(bool);
+pub struct MfRuntimeToken(pub bool);
 
 /// Dedicated MF actor thread. `on_event` is called immediately after
 /// `CoInitializeEx` + `MFStartup`, while the guard is live.
@@ -75,7 +74,7 @@ pub fn spawn_actor<F>(mut on_event: F) -> std::io::Result<(thread::JoinHandle<()
 where
     F: 'static + Send + FnMut(MfRuntimeToken, &mut MfRuntimeGuard) -> std::io::Result<()>,
 {
-    let (tx, rx) = std::sync::mpsc::sync_channel::<MfCommand>(8);
+    let (_tx, rx) = std::sync::mpsc::sync_channel::<MfCommand>(8);
     let handle = thread::spawn(move || {
         // COM-initialise the actor's thread (STA). COM calls here run in a
         // dedicated thread so the media pipeline never blocks the app's UI.
@@ -95,7 +94,7 @@ where
         loop {
             match rx.recv() {
                 Ok(MfCommand::Stop) => break,
-                Ok(MfCommand::Initialize(cfg)) => {
+                Ok(MfCommand::Initialize(_cfg)) => {
                     // MFStartup + IMFSourceReader / MFT enumeration go here.
                     // `guard` is live across this call so its Drop runs after
                     // any MFShutdown if initialisation fails.
