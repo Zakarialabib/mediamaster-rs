@@ -16,11 +16,13 @@ pub mod source;
 pub mod zones;
 
 pub use ducking::{AutomationCommand, DuckingCurve, DuckingProfile, IirSmoothing};
-pub use jitter::PagingJitterBuffer;
+pub use jitter::{PagingJitterBuffer, PagingSource};
 pub use mixer::Mixer;
 pub use opus_source::{OpusError, OpusPagingSource, OPUS_FRAME_SAMPLES_20MS, OPUS_SAMPLE_RATE};
 #[cfg(feature = "audio-cpal")]
 pub use sink::AudioSink;
 pub use sink::LockRead;
-pub use source::MediaSourceAdapter;
+#[cfg(feature = "decode")]
+pub use source::PcmFileSource;
+pub use source::{CallbackSource, MediaSourceAdapter, ReshapingSource};
 pub use zones::{Zone, ZoneId, ZoneRouter, Zones};

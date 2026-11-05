@@ -68,6 +68,9 @@ cargo clippy --workspace --all-targets -- -D warnings
 # 3. Unit and integration tests
 cargo test --workspace
 
+# Hardware Device Validation & Quirks Corpus Seeding (Real Device Pre-Flight)
+cargo test -p mediamaster-codec --test device_probe -- --ignored --nocapture
+
 # 4. no_std target check
 cargo check -p mediamaster-core --target thumbv7em-none-eabihf --no-default-features
 cargo check -p mediamaster-core --target riscv32imac-unknown-none-elf --no-default-features
@@ -87,16 +90,7 @@ cargo hack --manifest-path crates/mediamaster-bridge/Cargo.toml --feature-powers
 cargo hack --manifest-path crates/mediamaster-rf/Cargo.toml --feature-powerset check
 ```
 
-### Hardware Device Validation & Quirks Corpus Seeding (Real Device Pre-Flight)
-
-Before publishing, execute the ignored device probe harness on physical target
-hardware (Windows, Linux, Android) to validate hardware codec limits, verify that
-the reported maximum matches reality within tolerance, and generate machine-readable
-JSON reports for quirks-corpus seed data:
-
-```bash
-cargo test -p mediamaster-codec --test device_probe -- --ignored --nocapture
-```
+---
 
 ## 4. Execution Step-by-Step
 
@@ -126,9 +120,6 @@ git tag -a v0.4.0 -m "Release mediamaster-rs v0.4.0"
 git push origin v0.4.0
 ```
 
----
-
-## 5. Publish order (dependency-first, wait for crates.io to index between steps)
 ---
 
 ## 5. Post-Publish Smoke Testing

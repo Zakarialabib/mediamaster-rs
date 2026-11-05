@@ -11,7 +11,7 @@
 
 use mediamaster_codec::discovery::{CapsDiscovery, SoftwareCapsDiscovery};
 use mediamaster_codec::slot_budget::{CodecSlotManager, SlotKind};
-use mediamaster_core::caps::{Codec, Confidence, ObservedCodecCaps};
+use mediamaster_core::caps::{CapabilityVerdict, Codec, ObservedCodecCaps};
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct DeviceProbeReport {
@@ -72,12 +72,19 @@ fn probe_hardware_codec_exhaustion_and_emit_report() {
 
     // 5. Generate machine-readable JSON report
     let observed = vec![ObservedCodecCaps {
-        backend: std::env::consts::OS.to_string(),
+        device_class: std::env::consts::OS.to_string(),
         codec: Codec::H264,
+        profile: "High".to_string(),
+        level: "5.1".to_string(),
         max_width: 3840,
         max_height: 2160,
-        max_instances: verified_instances,
-        confidence: Confidence::VerifiedOnHardware,
+        max_fps: 60,
+        streams_concurrently_observed: verified_instances as u32,
+        starvation_events: 0,
+        verdict: CapabilityVerdict::Confirmed,
+        confidence: 1.0,
+        observed_at_start_ms: 0,
+        observed_at_end_ms: 0,
     }];
 
     let report = DeviceProbeReport {

@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use mediamaster_core::caps::{Codec, Confidence, ObservedCodecCaps};
+use mediamaster_core::caps::{CapabilityVerdict, Codec, ObservedCodecCaps};
 use mediamaster_core::events::{EventPublisher, HardwareEvent};
 use mediamaster_core::{CapsMatrix, DegradationTier};
 
@@ -271,10 +271,16 @@ impl CodecSlotManager {
         Ok(SlotLease::new(slot_id, kind, tag, Arc::clone(&self.state)))
     }
 
-    /// Acquire one permit of `kind`, returning a [`SlotLease`] with a default tag,
-    /// or fail with [`SlotExhausted`].
-    pub fn acquire(&mut self, kind: SlotKind) -> Result<SlotLease, SlotExhausted> {
-        self.acquire_lease(kind, "anonymous")
+    /// Acquire one permit of `kind`, or fail with [`SlotExhausted`].
+    pub fn acquire(&mut self, kind: SlotKind) -> Result<(), SlotExhausted> {
+        let mut state = self.lock();
+        let max = state.max(kind);
+        let active = state.active(kind);
+        if max != 0 && active >= max {
+            return Err(SlotExhausted { kind, active, max });
+        }
+        *state.active_mut(kind) = active.saturating_add(1);
+        Ok(())
     }
 
     /// Release one permit of `kind` (floor at `0`).
@@ -363,12 +369,19 @@ impl CodecSlotManager {
             }
 
             let observed = ObservedCodecCaps {
-                backend: backend_str,
+                device_class: backend_str,
                 codec,
+                profile: String::new(),
+                level: String::new(),
                 max_width: width,
                 max_height: height,
-                max_instances: clamped_instances,
-                confidence: Confidence::VerifiedOnHardware,
+                max_fps: 60,
+                streams_concurrently_observed: clamped_instances as u32,
+                starvation_events: failure_count,
+                verdict: CapabilityVerdict::Refuted,
+                confidence: 1.0,
+                observed_at_start_ms: 0,
+                observed_at_end_ms: 0,
             };
 
             state.observed_caps.push(observed.clone());
@@ -435,7 +448,8 @@ impl HealthProbe for CodecSlotManager {
                 if self.revoke_lease(lease_info.slot_id, &reason).is_some() {
                     if let Some(publ) = publisher {
                         publ.publish(HardwareEvent::SlotRevoked {
-                            slot_id: lease_info.slot_id,
+                            device_class: lease_info.owner_tag.clone(),
+                            codec: Codec::H264,
                             reason: reason.clone(),
                         });
                     }
@@ -509,22 +523,22 @@ mod tests {
     #[test]
     fn acquires_up_to_budget_then_exhausts() {
         let mut m = CodecSlotManager::new(&matrix_with_budget(2, 1));
-        let _l1 = m.acquire(SlotKind::Decoder).unwrap();
-        let _l2 = m.acquire(SlotKind::Decoder).unwrap();
+        assert!(m.acquire(SlotKind::Decoder).is_ok());
+        assert!(m.acquire(SlotKind::Decoder).is_ok());
         let err = m.acquire(SlotKind::Decoder).unwrap_err();
         assert_eq!(err.active, 2);
         assert_eq!(err.max, 2);
         // Encoder budget is separate.
-        let _e1 = m.acquire(SlotKind::Encoder).unwrap();
+        assert!(m.acquire(SlotKind::Encoder).is_ok());
         assert!(m.acquire(SlotKind::Encoder).is_err());
     }
 
     #[test]
     fn release_frees_a_slot() {
         let mut m = CodecSlotManager::new(&matrix_with_budget(1, 0));
-        let l1 = m.acquire(SlotKind::Decoder).unwrap();
+        m.acquire(SlotKind::Decoder).unwrap();
         assert!(m.acquire(SlotKind::Decoder).is_err());
-        drop(l1);
+        m.release(SlotKind::Decoder);
         assert_eq!(m.active_count(SlotKind::Decoder), 0);
         assert!(m.acquire(SlotKind::Decoder).is_ok());
     }
@@ -532,12 +546,22 @@ mod tests {
     #[test]
     fn explicit_release_is_idempotent() {
         let mut m = CodecSlotManager::new(&matrix_with_budget(2, 0));
-        let l1 = m.acquire(SlotKind::Decoder).unwrap();
+        let l1 = m.acquire_lease(SlotKind::Decoder, "test").unwrap();
         assert_eq!(m.active_count(SlotKind::Decoder), 1);
         assert!(l1.release());
         assert_eq!(m.active_count(SlotKind::Decoder), 0);
         assert!(!l1.release()); // idempotent: subsequent releases return false
         drop(l1);
+        assert_eq!(m.active_count(SlotKind::Decoder), 0);
+    }
+
+    #[test]
+    fn lease_drop_releases_slot() {
+        let mut m = CodecSlotManager::new(&matrix_with_budget(1, 0));
+        {
+            let _l = m.acquire_lease(SlotKind::Decoder, "scoped").unwrap();
+            assert_eq!(m.active_count(SlotKind::Decoder), 1);
+        }
         assert_eq!(m.active_count(SlotKind::Decoder), 0);
     }
 
@@ -650,8 +674,13 @@ mod tests {
         // SlotRevoked event emitted on publisher
         let events = publisher.events.lock().unwrap();
         assert_eq!(events.len(), 1);
-        if let HardwareEvent::SlotRevoked { slot_id, reason } = &events[0] {
-            assert_eq!(*slot_id, l2.slot_id);
+        if let HardwareEvent::SlotRevoked {
+            device_class,
+            reason,
+            ..
+        } = &events[0]
+        {
+            assert_eq!(device_class, "cam2");
             assert!(reason.contains("Device lost"));
         } else {
             panic!("Expected SlotRevoked event");
@@ -685,8 +714,8 @@ mod tests {
         let observed = m.record_failure("rockchip-vpu", Codec::H264, 3840, 2160);
         assert!(observed.is_some());
         let obs = observed.unwrap();
-        assert_eq!(obs.backend, "rockchip-vpu");
-        assert_eq!(obs.confidence, Confidence::VerifiedOnHardware);
+        assert_eq!(obs.device_class, "rockchip-vpu");
+        assert_eq!(obs.verdict, CapabilityVerdict::Refuted);
 
         // Advertised caps clamped
         assert!(m.caps_matrix().max_hw_decoder_instances < 4);

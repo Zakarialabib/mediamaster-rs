@@ -89,28 +89,6 @@ pub enum DegradationTier {
     Tier4PosterFallback,
 }
 
-/// Confidence level of a capability observation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde-sync", derive(Serialize, Deserialize))]
-pub enum Confidence {
-    /// Merely enumerated by the OS/driver (may be exaggerated or untrusted).
-    Enumerated,
-    /// Verified on actual hardware via runtime execution or bench-probe.
-    VerifiedOnHardware,
-}
-
-/// Observed hardware capability recorded after runtime validation.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde-sync", derive(Serialize, Deserialize))]
-pub struct ObservedCodecCaps {
-    pub backend: String,
-    pub codec: Codec,
-    pub max_width: u32,
-    pub max_height: u32,
-    pub max_instances: u8,
-    pub confidence: Confidence,
-}
-
 /// The full capability matrix for a host: every codec it advertises, plus the
 /// hardware instance budget.
 #[derive(Debug, Clone, PartialEq, Default)]

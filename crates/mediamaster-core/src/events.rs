@@ -42,6 +42,16 @@ pub enum HardwareEvent {
         lux_rate_of_change: f32,
         rf_burst_frequency: f32,
     },
+    /// Audio stream buffer underrun detected on a source.
+    AudioUnderrun {
+        source: String,
+        dropped_frames: usize,
+    },
+    /// Audio stream buffer overrun detected on a source.
+    AudioOverrun {
+        source: String,
+        dropped_frames: usize,
+    },
     /// A poster fallback or backdrop artifact was generated for a visual stream.
     PosterGenerated {
         uri_hint: String,
@@ -50,9 +60,7 @@ pub enum HardwareEvent {
     /// Storage retention engine computed an eviction plan.
     EvictionPlanned { count: usize, freed_bytes: u64 },
     /// A hardware decoder slot was forcibly revoked (e.g. driver reclamation).
-    /// A hardware codec slot lease was revoked (due to driver failure, device disconnect, or health probe failure).
     SlotRevoked {
-        slot_id: u64,
         device_class: String,
         codec: Codec,
         reason: String,
@@ -76,8 +84,6 @@ pub enum HardwareEvent {
         concurrent_streams: u32,
         duration_ms: u64,
     },
-    /// A fan-out or ring consumer fell behind and dropped frames.
-    FrameDrop { subscriber_id: usize, count: u64 },
 }
 
 impl HardwareEvent {
@@ -89,12 +95,13 @@ impl HardwareEvent {
             HardwareEvent::CctvMotionDetected { .. } => "CctvMotionDetected",
             HardwareEvent::ZoneChanged { .. } => "ZoneChanged",
             HardwareEvent::EnvironmentalDrift { .. } => "EnvironmentalDrift",
+            HardwareEvent::AudioUnderrun { .. } => "AudioUnderrun",
+            HardwareEvent::AudioOverrun { .. } => "AudioOverrun",
             HardwareEvent::PosterGenerated { .. } => "PosterGenerated",
             HardwareEvent::EvictionPlanned { .. } => "EvictionPlanned",
             HardwareEvent::SlotRevoked { .. } => "SlotRevoked",
             HardwareEvent::StarvationDetected { .. } => "StarvationDetected",
             HardwareEvent::DecodeHeartbeat { .. } => "DecodeHeartbeat",
-            HardwareEvent::FrameDrop { .. } => "FrameDrop",
         }
     }
 }
