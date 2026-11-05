@@ -29,5 +29,5 @@ pub mod mf_actor;
 #[cfg(feature = "mediacodec")]
 pub mod ndk_codec;
 
-pub use discovery::{CapsDiscovery, SoftwareCapsDiscovery};
+pub use discovery::{CapsDiscovery, QuirkRule, QuirksAwareDiscovery, SoftwareCapsDiscovery};
 pub use slot_budget::{degrade_until, next_tier, CodecSlotManager, SlotExhausted, SlotKind};

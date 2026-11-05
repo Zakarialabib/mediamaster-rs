@@ -13,3 +13,6 @@ path = "src/lib.rs"
 
 [dependencies]
 thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = "1.12.0"

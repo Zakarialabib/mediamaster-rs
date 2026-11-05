@@ -9,6 +9,24 @@ pub enum Container {
     Mkv,
     /// WebM (`webm` DocType).
     Webm,
+    /// MPEG-TS (MPEG-2 Transport Stream).
+    Ts,
+    /// MP3 (MPEG audio Layer III).
+    Mp3,
+    /// Raw AAC with ADTS framing.
+    Aac,
+    /// Free Lossless Audio Codec (FLAC).
+    Flac,
+    /// WAV / RF64 PCM/audio container.
+    Wav,
+    /// JPEG still image.
+    Jpeg,
+    /// PNG still image.
+    Png,
+    /// GIF still or animated image.
+    Gif,
+    /// WebP still or animated image.
+    Webp,
 }
 
 impl Container {
@@ -17,6 +35,15 @@ impl Container {
             Container::Mp4 => "mp4",
             Container::Mkv => "mkv",
             Container::Webm => "webm",
+            Container::Ts => "ts",
+            Container::Mp3 => "mp3",
+            Container::Aac => "aac",
+            Container::Flac => "flac",
+            Container::Wav => "wav",
+            Container::Jpeg => "jpeg",
+            Container::Png => "png",
+            Container::Gif => "gif",
+            Container::Webp => "webp",
         }
     }
 }
@@ -111,6 +138,8 @@ pub struct AudioInfo {
     pub codec: AudioCodec,
     pub channels: Option<u16>,
     pub sample_rate: Option<u32>,
+    pub bitrate_kbps: Option<u32>,
+    pub bit_depth: Option<u16>,
 }
 
 impl AudioInfo {
@@ -119,6 +148,30 @@ impl AudioInfo {
             codec,
             channels: None,
             sample_rate: None,
+            bitrate_kbps: None,
+            bit_depth: None,
+        }
+    }
+}
+
+/// Still image properties discovered from container headers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StillImageInfo {
+    pub width: u32,
+    pub height: u32,
+    /// EXIF orientation value (1–8) when discovered.
+    pub orientation: Option<u16>,
+    /// `true` if the container indicates animated image frames (e.g. animated GIF, WebP, APNG).
+    pub animated: bool,
+}
+
+impl StillImageInfo {
+    pub fn new(width: u32, height: u32) -> Self {
+        Self {
+            width,
+            height,
+            orientation: None,
+            animated: false,
         }
     }
 }
@@ -133,6 +186,10 @@ pub struct MediaDescriptor {
     pub duration_ms: Option<u64>,
     pub video: Option<VideoInfo>,
     pub audio: Option<AudioInfo>,
+    /// Still image information if container is an image.
+    pub image: Option<StillImageInfo>,
+    /// Initial Program Clock Reference (PCR) value (e.g. for MPEG-TS streams).
+    pub pcr: Option<u64>,
 }
 
 impl MediaDescriptor {
@@ -143,6 +200,8 @@ impl MediaDescriptor {
             duration_ms: None,
             video: None,
             audio: None,
+            image: None,
+            pcr: None,
         }
     }
 }
