@@ -16,6 +16,7 @@ extern crate alloc;
 pub mod caps;
 pub mod error;
 pub mod events;
+pub mod palette;
 pub mod policy;
 pub mod provisioning;
 pub mod traits;
@@ -32,4 +33,6 @@ pub use provisioning::{MaintenanceLease, MediaCapabilityBundleV1};
 #[allow(deprecated)]
 pub use traits::AsyncSensor;
 pub use traits::{AudioSource, SensorReading, Signal, SignalDetector};
-pub use types::{AudioTarget, BoundingBox, RadioBurst, RoomState};
+pub use types::{
+    AudioTarget, BoundingBox, DomainAuditEntry, RadioBurst, RoomState, SignageCommand,
+};

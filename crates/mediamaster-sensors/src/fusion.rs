@@ -11,9 +11,10 @@ use mediamaster_core::types::RoomState;
 /// Fusion policy (priority-ordered, deterministic regardless of HashMap
 /// iteration order):
 ///
+/// 0. **Emergency CCTV detection** (or explicit Emergency) → [`RoomState::EmergencyOverride`].
 /// 1. **Motion + low light** → [`RoomState::PersonPresent`]
 ///    (a person is detected in a dim area).
-/// 2. **Motion / occupancy** → [`RoomState::Occupied`].
+/// 2. **Motion / occupancy / CCTV non-emergency detection** → [`RoomState::Occupied`].
 /// 3. **Proximity < 10 m** → [`RoomState::PersonPresent`].
 /// 4. **Light < 50 lux** → [`RoomState::LowLight`].
 /// 5. Otherwise → [`RoomState::Empty`].
@@ -35,10 +36,26 @@ impl FusionEngine {
 
     /// Compute the current fused `RoomState`.
     pub fn current_state(&self) -> RoomState {
-        let has_motion = self
-            .readings
-            .values()
-            .any(|r| matches!(r, SensorReading::MotionDetected | SensorReading::Occupancy));
+        // 0 - Emergency CCTV Detection
+        let has_emergency = self.readings.values().any(|r| match r {
+            SensorReading::CctvDetection {
+                is_emergency,
+                confidence,
+            } => *is_emergency && *confidence > 0.0,
+            _ => false,
+        });
+        if has_emergency {
+            return RoomState::EmergencyOverride;
+        }
+
+        let has_motion = self.readings.values().any(|r| {
+            matches!(
+                r,
+                SensorReading::MotionDetected
+                    | SensorReading::Occupancy
+                    | SensorReading::CctvDetection { .. }
+            )
+        });
         let low_light = self
             .readings
             .values()
@@ -126,5 +143,31 @@ mod tests {
         let mut engine = FusionEngine::new();
         engine.update("light", SensorReading::Light(500.0));
         assert_eq!(engine.current_state(), RoomState::Empty);
+    }
+
+    #[test]
+    fn cctv_detection_emergency_is_emergency_override() {
+        let mut engine = FusionEngine::new();
+        engine.update(
+            "cctv-front",
+            SensorReading::CctvDetection {
+                confidence: 0.95,
+                is_emergency: true,
+            },
+        );
+        assert_eq!(engine.current_state(), RoomState::EmergencyOverride);
+    }
+
+    #[test]
+    fn cctv_detection_regular_is_occupied() {
+        let mut engine = FusionEngine::new();
+        engine.update(
+            "cctv-front",
+            SensorReading::CctvDetection {
+                confidence: 0.8,
+                is_emergency: false,
+            },
+        );
+        assert_eq!(engine.current_state(), RoomState::Occupied);
     }
 }

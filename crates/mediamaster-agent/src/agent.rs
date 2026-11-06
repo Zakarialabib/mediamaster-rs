@@ -13,11 +13,12 @@
 use mediamaster_audio::ducking::{DuckingCurve, DuckingProfile};
 use mediamaster_bridge::AudioBridge;
 use mediamaster_bus::EventBus;
-use mediamaster_core::{HardwareEvent, RoomState};
+use mediamaster_core::{DomainAuditEntry, HardwareEvent, RoomState, SignageCommand};
 use mediamaster_rag::{
     AcousticProfile, CodecQuery, MediamasterRagFacade, RagContextEnvelope, SceneQuery,
     SensorVector, TemporalMetadata, TriggerPattern,
 };
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use tokio::sync::RwLock;
 
@@ -82,6 +83,14 @@ pub struct Agent {
     rag: Option<Arc<RwLock<MediamasterRagFacade>>>,
     /// Dynamically adjusted ducking sensitivity updated by scene memory.
     adaptive_ducking: Arc<Mutex<AdaptiveDuckingConfig>>,
+    /// Emergency asset blake3 hash to deploy on EmergencyOverride (defaults to 32 bytes).
+    emergency_asset: Arc<Mutex<Option<[u8; 32]>>>,
+    /// Target zone for signage emergency asset.
+    emergency_zone: Arc<Mutex<String>>,
+    /// Recent audit entries recording cross-workspace orchestrations.
+    audit_log: Arc<Mutex<VecDeque<DomainAuditEntry>>>,
+    /// Last detected CCTV event signature.
+    last_cctv_sig: Arc<Mutex<Option<String>>>,
 }
 
 impl Agent {
@@ -94,7 +103,23 @@ impl Agent {
             audio,
             rag: None,
             adaptive_ducking: Arc::new(Mutex::new(AdaptiveDuckingConfig::default())),
+            emergency_asset: Arc::new(Mutex::new(Some([0x42; 32]))),
+            emergency_zone: Arc::new(Mutex::new("main".to_string())),
+            audit_log: Arc::new(Mutex::new(VecDeque::with_capacity(100))),
+            last_cctv_sig: Arc::new(Mutex::new(None)),
         }
+    }
+
+    /// Configure emergency signage asset BLAKE3 hash and display zone.
+    pub fn with_emergency_asset(self, zone: impl Into<String>, asset_blake3: [u8; 32]) -> Self {
+        *self.emergency_zone.lock().unwrap() = zone.into();
+        *self.emergency_asset.lock().unwrap() = Some(asset_blake3);
+        self
+    }
+
+    /// Retrieve logged domain audit entries.
+    pub fn audit_entries(&self) -> Vec<DomainAuditEntry> {
+        self.audit_log.lock().unwrap().iter().cloned().collect()
     }
 
     /// Attach a RAG facade as an asynchronous background context provider.
@@ -158,6 +183,13 @@ impl Agent {
 
     fn handle_event(&self, event: &HardwareEvent) -> Result<(), AgentError> {
         match event {
+            HardwareEvent::CctvMotionDetected {
+                camera,
+                bounding_box,
+            } => {
+                let sig = format!("cctv:{camera}:area={:.1}", bounding_box.area());
+                *self.last_cctv_sig.lock().unwrap() = Some(sig);
+            }
             HardwareEvent::SensorContextChange { state } => {
                 self.on_room_state(*state);
             }
@@ -173,13 +205,14 @@ impl Agent {
                     target: *ducking,
                 });
             }
-            HardwareEvent::ZoneChanged { .. }
-            | HardwareEvent::CctvMotionDetected { .. }
+            HardwareEvent::Signage { .. }
+            | HardwareEvent::AuditLogged { .. }
+            | HardwareEvent::ZoneChanged { .. }
             | HardwareEvent::PosterGenerated { .. }
             | HardwareEvent::EvictionPlanned { .. }
             | HardwareEvent::AudioUnderrun { .. }
             | HardwareEvent::AudioOverrun { .. } => {
-                // Zone/Cctv/Poster/Eviction/Audio buffer events are recording/audit-only for the agent.
+                // Signage/Audit/Zone/Poster/Eviction/Audio buffer events are recording/audit-only for the agent.
             }
             HardwareEvent::EnvironmentalDrift {
                 motion_density,
@@ -264,11 +297,55 @@ impl Agent {
     fn on_room_state(&self, state: RoomState) {
         match state {
             RoomState::EmergencyOverride => {
+                // 1. Emit SignageCommand::EmergencyAsset(zone, asset_blake3) for tv-rs-agent
+                let zone = self.emergency_zone.lock().unwrap().clone();
+                let asset = self.emergency_asset.lock().unwrap().unwrap_or([0xAA; 32]);
+                let _ = self.bus.publish(HardwareEvent::Signage {
+                    command: SignageCommand::EmergencyAsset {
+                        zone: zone.clone(),
+                        asset_blake3: asset,
+                    },
+                });
+
+                // 2. Duck audio mixer to FULL_MUTE (0.0)
                 self.start_ducking(DuckingProfile {
                     curve: DuckingCurve::Exponential,
                     duration_ms: 300,
                     target: 0.0,
                 });
+
+                // 3. Log ducking and cross-workspace action to shared audit schema with all 3 signatures
+                let cctv_sig = self
+                    .last_cctv_sig
+                    .lock()
+                    .unwrap()
+                    .clone()
+                    .unwrap_or_else(|| "cctv:detection:sensor_reading".to_string());
+                let hex_asset: String = asset.iter().map(|b| format!("{b:02x}")).collect();
+                let signage_sig = format!("signage:{zone}:blake3={hex_asset}");
+                let audio_sig = "audio:mixer:FULL_MUTE:exponential:300ms".to_string();
+
+                let now_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_millis() as u64)
+                    .unwrap_or(1700000000000);
+
+                let audit_entry = DomainAuditEntry {
+                    cctv_detection_sig: cctv_sig,
+                    signage_command_sig: signage_sig,
+                    audio_ducking_sig: audio_sig,
+                    timestamp_ms: now_ms,
+                };
+
+                let mut log = self.audit_log.lock().unwrap();
+                if log.len() == 100 {
+                    log.pop_front();
+                }
+                log.push_back(audit_entry.clone());
+
+                let _ = self
+                    .bus
+                    .publish(HardwareEvent::AuditLogged { entry: audit_entry });
             }
             _ => {
                 // Zone state change: record only (the mixer is left untouched).
