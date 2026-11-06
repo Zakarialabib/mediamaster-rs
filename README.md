@@ -1,4 +1,4 @@
-# Mediamaster Rust — SignageMaster Backend
+# Mediamaster Rust
 
 A Rust workspace (Tauri+Vue frontend is separate) of zero-FFmpeg, async-native crates for a
 signage broadcasting system. One Rust workspace, many published crates — each with its own

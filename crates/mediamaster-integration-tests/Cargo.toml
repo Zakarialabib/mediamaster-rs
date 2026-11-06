@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Cross-crate integration tests for the mediamaster-rs ecosystem (no external case study)"
 edition = "2021"
 rust-version = "1.94"
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 publish = false
 
 [dependencies]

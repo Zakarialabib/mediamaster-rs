@@ -4,7 +4,7 @@ version = "0.2.0"
 description = "Bridge crate: unified API for mediamaster-rs domains (audio + sensors + rf) with device enumerators and event handlers"
 edition = "2021"
 rust-version = "1.95"
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 
 [lib]
 path = "src/lib.rs"

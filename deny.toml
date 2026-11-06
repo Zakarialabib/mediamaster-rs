@@ -18,7 +18,7 @@ ignore = [
 
 [licenses]
 version = 2
-# Allow permissive licenses only. `MIT OR Apache-2.0` crates satisfy either
+# Allow permissive licenses only. `Apache-2.0` crates satisfy either
 # clause, so both are listed; MPL-2.0 (symphonia) is file-level copyleft and is
 # safe to link against.
 confidence-threshold = 0.9
