@@ -94,6 +94,12 @@ pub enum SensorReading {
     /// Binary contact closure (door/window sensor).
     Open,
     Closed,
+    /// CCTV vision detection (e.g. from `cctv-detect` pipeline).
+    /// `confidence`: [0.0, 1.0], `is_emergency`: flag indicating emergency condition.
+    CctvDetection {
+        confidence: f32,
+        is_emergency: bool,
+    },
     /// Sensor returned an invalid or unreadable value.
     Unknown,
 }
@@ -105,14 +111,48 @@ impl SensorReading {
     /// concurrently.
     pub fn priority(&self) -> u8 {
         match self {
+            Self::CctvDetection {
+                is_emergency: true, ..
+            } => 6,
             Self::MotionDetected => 5,
             Self::Occupancy => 4,
+            Self::CctvDetection {
+                is_emergency: false,
+                ..
+            } => 4,
             Self::Proximity(_) => 3,
             Self::Open | Self::Closed => 2,
             Self::Light(_) => 1,
             Self::Unknown => 0,
         }
     }
+}
+
+/// Commands for signage display endpoints (e.g. `tv-rs-agent` or signage frontends).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde-sync", derive(Serialize, Deserialize))]
+pub enum SignageCommand {
+    /// Switch display zone to an emergency asset identified by its 32-byte BLAKE3 hash.
+    EmergencyAsset {
+        zone: String,
+        asset_blake3: [u8; 32],
+    },
+    /// Clear emergency override on zone.
+    ClearEmergency { zone: String },
+}
+
+/// A cryptographic multi-domain audit record for compliance and provenance.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde-sync", derive(Serialize, Deserialize))]
+pub struct DomainAuditEntry {
+    /// CCTV event detection signature / hash (hex or identifier).
+    pub cctv_detection_sig: String,
+    /// Signage command signature / blake3 hex.
+    pub signage_command_sig: String,
+    /// Audio ducking action signature.
+    pub audio_ducking_sig: String,
+    /// Epoch millisecond timestamp of the audit entry.
+    pub timestamp_ms: u64,
 }
 
 /// A detected RF signal — whatever a user's `SignalDetector` decides it is.

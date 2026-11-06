@@ -30,14 +30,32 @@ const DRIFT_GAIN: f64 = 0.0004;
 /// Target fill ratio (half full) — the resampler's equilibrium.
 const TARGET_FILL: f64 = 0.5;
 
+/// Feedback acknowledgment report emitted by the jitter buffer back to the network sender / video pacer.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PacingAck {
+    /// Total samples successfully received by the jitter buffer.
+    pub total_received: usize,
+    /// Total samples drained/played out.
+    pub total_drained: usize,
+    /// Current estimated audio buffer latency in milliseconds.
+    pub buffer_latency_ms: f64,
+    /// Target latency matching the video path in milliseconds.
+    pub target_latency_ms: f64,
+    /// Calculated A/V sync drift in milliseconds (positive = audio leads video, negative = audio lags).
+    pub av_sync_drift_ms: f64,
+}
+
 /// Jitter buffer that prebuffers, drift-compensates, and fades out on underrun.
 pub struct PagingJitterBuffer {
+    sample_rate: u32,
     ring: HeapRb<f32>,
     prebuffer_threshold: usize,
     /// Fractional read cursor into the drain (for Hermite interpolation).
     read_frac: f64,
     /// Samples already pushed but not yet prebuffer-gated out.
     seen: usize,
+    /// Samples drained so far.
+    drained_samples: usize,
     /// Whether the prebuffer gate has opened for good.
     started: bool,
     /// Underrun fade: remaining fade-in samples at the tail (else 0).
@@ -49,6 +67,10 @@ pub struct PagingJitterBuffer {
     /// Optional event bus to publish underrun/overrun events.
     event_bus: Option<std::sync::Arc<mediamaster_bus::EventBus>>,
     label: String,
+    /// Reference video path latency in milliseconds for A/V sync matching.
+    video_latency_ms: f64,
+    /// Dynamic target fill ratio adjusted by ack-based pacing.
+    target_fill: f64,
 }
 
 impl PagingJitterBuffer {
@@ -57,10 +79,12 @@ impl PagingJitterBuffer {
         let sr = sample_rate.max(1);
         let threshold = ((sr as u64 * prebuffer_ms as u64) / 1000) as usize;
         Self {
+            sample_rate: sr,
             ring: HeapRb::new(CAPACITY),
             prebuffer_threshold: threshold.max(1),
             read_frac: 0.0,
             seen: 0,
+            drained_samples: 0,
             started: false,
             fade_remaining: 0,
             fade_total: ((sr as u64 * FADE_MS as u64) / 1000) as usize,
@@ -68,6 +92,30 @@ impl PagingJitterBuffer {
             faded_out: false,
             event_bus: None,
             label: "paging-jitter".to_string(),
+            video_latency_ms: prebuffer_ms as f64,
+            target_fill: TARGET_FILL,
+        }
+    }
+
+    /// Update video path latency to match A/V sync and generate an acknowledgment.
+    pub fn set_video_latency_ms(&mut self, video_latency_ms: f64) {
+        self.video_latency_ms = video_latency_ms.max(0.0);
+        // Adjust target fill proportionally to target video latency
+        let target_samples = (self.sample_rate as f64 * (self.video_latency_ms / 1000.0)).max(0.0);
+        self.target_fill = (target_samples / CAPACITY as f64).clamp(0.1, 0.9);
+    }
+
+    /// Generate an ack-based pacing feedback report.
+    pub fn generate_ack(&self) -> PacingAck {
+        let current_buffered_samples = self.ring.len() as f64;
+        let buffer_latency_ms = (current_buffered_samples / self.sample_rate as f64) * 1000.0;
+        let av_sync_drift_ms = buffer_latency_ms - self.video_latency_ms;
+        PacingAck {
+            total_received: self.seen,
+            total_drained: self.drained_samples,
+            buffer_latency_ms,
+            target_latency_ms: self.video_latency_ms,
+            av_sync_drift_ms,
         }
     }
 
@@ -129,7 +177,15 @@ impl PagingJitterBuffer {
     /// The drift-corrected step (samples consumed per output sample), derived
     /// from the fill ratio so the buffer tends toward `TARGET_FILL`.
     fn resample_step(&self) -> f64 {
-        1.0 + (self.fill_ratio() - TARGET_FILL) * DRIFT_GAIN
+        // Adapt resampler step to match target_fill (video latency alignment)
+        // With higher gain when sync drift is large
+        let drift = self.fill_ratio() - self.target_fill;
+        let gain = if drift.abs() > 0.1 {
+            DRIFT_GAIN * 2.0
+        } else {
+            DRIFT_GAIN
+        };
+        (1.0 + drift * gain).clamp(0.8, 1.2)
     }
 
     /// 4-point cubic Hermite (Catmull-Rom) interpolation between `y1` and `y2`
@@ -201,9 +257,11 @@ impl PagingJitterBuffer {
         // Advance by the drift-corrected step; pop whole samples we passed.
         self.read_frac += self.resample_step();
         let whole = self.read_frac.floor();
-        for _ in 0..whole as usize {
+        let whole_count = whole as usize;
+        for _ in 0..whole_count {
             let _ = self.ring.pop();
         }
+        self.drained_samples += whole_count;
         self.read_frac -= whole;
 
         let s = out as f32;
