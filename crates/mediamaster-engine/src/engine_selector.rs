@@ -16,6 +16,7 @@
 use super::Codec;
 
 /// The concrete encoder/decoder backend a transcode plan pulls.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Engine {
     Software,
     MediaFoundation,
@@ -39,6 +40,66 @@ pub trait EngineSelector {
 
     /// Resolve the decoder to use for `codec` on this device.
     fn select_decoder(&self, caps: &mediamaster_core::CapsMatrix, codec: Codec) -> Engine;
+
+    /// Resolve encoder and degradation tier considering link throughput and slot availability.
+    fn select_encoder_with_tier(
+        &self,
+        caps: &mediamaster_core::CapsMatrix,
+        codec: Codec,
+        link_throughput: Option<u64>,
+        slots: &mut mediamaster_codec::CodecSlotManager,
+    ) -> (Engine, mediamaster_core::DegradationTier) {
+        let engine = self.select_encoder(caps, codec);
+        let tier = self.pick_tier(engine, link_throughput, slots);
+        (engine, tier)
+    }
+
+    /// Select degradation tier based on engine, link throughput, and slot budget.
+    fn pick_tier(
+        &self,
+        engine: Engine,
+        link_throughput: Option<u64>,
+        slots: &mut mediamaster_codec::CodecSlotManager,
+    ) -> mediamaster_core::DegradationTier {
+        // Pacing threshold check: if link throughput is constrained, downgrade tier immediately
+        // e.g. < 500 kbps forces poster fallback, < 1.5 Mbps forces shared texture mux or byte buffer
+        let max_allowed_tier = match link_throughput {
+            Some(tp) if tp < 500_000 => mediamaster_core::DegradationTier::Tier4PosterFallback,
+            Some(tp) if tp < 1_500_000 => mediamaster_core::DegradationTier::Tier3SharedTextureMux,
+            Some(tp) if tp < 3_000_000 => mediamaster_core::DegradationTier::Tier2HwByteBuffer,
+            _ => mediamaster_core::DegradationTier::Tier1HwSurface,
+        };
+
+        if matches!(engine, Engine::MediaFoundation | Engine::AndroidNdk) {
+            let start_tier = std::cmp::max(
+                mediamaster_core::DegradationTier::Tier1HwSurface,
+                max_allowed_tier,
+            );
+            mediamaster_codec::degrade_until(start_tier, |t| match t {
+                mediamaster_core::DegradationTier::Tier1HwSurface => {
+                    max_allowed_tier <= mediamaster_core::DegradationTier::Tier1HwSurface
+                        && slots.acquire(mediamaster_codec::SlotKind::Encoder).is_ok()
+                }
+                mediamaster_core::DegradationTier::Tier2HwByteBuffer => {
+                    max_allowed_tier <= mediamaster_core::DegradationTier::Tier2HwByteBuffer
+                        && (slots.can_acquire(mediamaster_codec::SlotKind::Encoder)
+                            || slots.acquire(mediamaster_codec::SlotKind::Encoder).is_ok())
+                }
+                mediamaster_core::DegradationTier::Tier3SharedTextureMux => {
+                    max_allowed_tier <= mediamaster_core::DegradationTier::Tier3SharedTextureMux
+                }
+                mediamaster_core::DegradationTier::Tier4PosterFallback => true,
+            })
+            .unwrap_or(mediamaster_core::DegradationTier::Tier4PosterFallback)
+        } else {
+            let start_tier = std::cmp::max(
+                mediamaster_core::DegradationTier::Tier2HwByteBuffer,
+                max_allowed_tier,
+            );
+            mediamaster_codec::degrade_until(start_tier, |t| t >= max_allowed_tier)
+                .unwrap_or(mediamaster_core::DegradationTier::Tier4PosterFallback)
+        }
+    }
 
     /// Hardware-acceleration status of this selector (true if any hardware
     /// backend is available).

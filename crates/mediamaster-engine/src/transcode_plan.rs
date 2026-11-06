@@ -44,6 +44,8 @@ pub struct TranscodePlan {
     pub profile: Profile,
     /// Output resolution.
     pub resolution: (u32, u32),
+    /// Link throughput in bps if known, used for pacing and tier adaptation.
+    pub link_throughput: Option<u64>,
     /// Human-readable reason (e.g. "HW-accelerated NVENC is available").
     pub why: String,
 }
@@ -104,8 +106,15 @@ impl TranscodePlan {
         Self {
             profile,
             resolution: (width, height),
+            link_throughput: None,
             why: TranscodePlan::why(hardware, codec),
         }
+    }
+
+    /// Builder method to attach link throughput pacing to the transcode plan.
+    pub fn with_link_throughput(mut self, link_throughput: Option<u64>) -> Self {
+        self.link_throughput = link_throughput;
+        self
     }
 
     /// Decide the best transcode plan for a probed source (live stream or file asset)
@@ -130,31 +139,12 @@ impl TranscodePlan {
         caps: &mediamaster_core::CapsMatrix,
         container: crate::hls::HlsContainer,
     ) -> HlsJob {
-        let engine = selector.select_encoder(caps, self.profile.codec);
-        let tier = if matches!(
-            engine,
-            crate::engine_selector::Engine::MediaFoundation
-                | crate::engine_selector::Engine::AndroidNdk
-        ) {
-            if slots.acquire(mediamaster_codec::SlotKind::Encoder).is_ok() {
-                mediamaster_core::DegradationTier::Tier1HwSurface
-            } else {
-                mediamaster_codec::degrade_until(
-                    mediamaster_core::DegradationTier::Tier2HwByteBuffer,
-                    |t| match t {
-                        mediamaster_core::DegradationTier::Tier1HwSurface
-                        | mediamaster_core::DegradationTier::Tier2HwByteBuffer => {
-                            slots.can_acquire(mediamaster_codec::SlotKind::Encoder)
-                        }
-                        mediamaster_core::DegradationTier::Tier3SharedTextureMux
-                        | mediamaster_core::DegradationTier::Tier4PosterFallback => true,
-                    },
-                )
-                .unwrap_or(mediamaster_core::DegradationTier::Tier4PosterFallback)
-            }
-        } else {
-            mediamaster_core::DegradationTier::Tier2HwByteBuffer
-        };
+        let (engine, tier) = selector.select_encoder_with_tier(
+            caps,
+            self.profile.codec,
+            self.link_throughput,
+            slots,
+        );
 
         let core_codec = match self.profile.codec {
             Codec::H264 => mediamaster_core::Codec::H264,

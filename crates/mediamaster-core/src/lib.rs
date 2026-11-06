@@ -32,4 +32,6 @@ pub use provisioning::{MaintenanceLease, MediaCapabilityBundleV1};
 #[allow(deprecated)]
 pub use traits::AsyncSensor;
 pub use traits::{AudioSource, SensorReading, Signal, SignalDetector};
-pub use types::{AudioTarget, BoundingBox, RadioBurst, RoomState};
+pub use types::{
+    AudioTarget, BoundingBox, DomainAuditEntry, RadioBurst, RoomState, SignageCommand,
+};
