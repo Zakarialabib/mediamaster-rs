@@ -18,6 +18,7 @@
 //! }
 //! ```
 
+pub mod annexb;
 pub mod audio_containers;
 pub mod ebml;
 pub mod error;
@@ -26,6 +27,7 @@ pub mod mp4;
 pub mod ts;
 pub mod types;
 
+pub use annexb::probe_annexb;
 pub use error::ProbeError;
 pub use types::{
     AudioCodec, AudioInfo, Container, MediaDescriptor, StillImageInfo, VideoCodec, VideoInfo,
@@ -41,8 +43,11 @@ const PNG_MAGIC: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
 /// A container inspector. Implementors turn raw bytes into a
 /// [`MediaDescriptor`].
 pub trait MediaProbe {
-    /// Probe a byte stream and describe its contents.
+    /// Probe a byte stream (e.g. file container or stream) and describe its contents.
     fn probe_bytes(&self, data: &[u8]) -> Result<MediaDescriptor, ProbeError>;
+
+    /// Probe a live elementary stream (such as Annex-B H.264 / H.265 or container stream) and describe its contents.
+    fn probe_stream(&self, bytes: &[u8]) -> Result<MediaDescriptor, ProbeError>;
 }
 
 /// The default container probe (dispatches across all supported formats).
@@ -52,6 +57,10 @@ pub struct ContainerProbe;
 impl MediaProbe for ContainerProbe {
     fn probe_bytes(&self, data: &[u8]) -> Result<MediaDescriptor, ProbeError> {
         probe_bytes(data)
+    }
+
+    fn probe_stream(&self, bytes: &[u8]) -> Result<MediaDescriptor, ProbeError> {
+        probe_stream(bytes)
     }
 }
 
@@ -147,6 +156,36 @@ pub fn probe_bytes(data: &[u8]) -> Result<MediaDescriptor, ProbeError> {
     }
 
     Err(ProbeError::UnrecognizedContainer)
+}
+
+/// Probe a live stream or byte stream, trying Annex-B stream parsing or container sniffing.
+///
+/// If `bytes` is an Annex-B elementary stream (e.g. from an RTP depacketizer / live camera feed),
+/// this extracts SPS/PPS/VPS to produce a [`MediaDescriptor`]. If it is container-wrapped (MP4, MKV, TS, etc.),
+/// it falls back to sniffing the container.
+pub fn probe_stream(bytes: &[u8]) -> Result<MediaDescriptor, ProbeError> {
+    if bytes.is_empty() {
+        return Err(ProbeError::EmptyInput);
+    }
+
+    // First, if it has Annex-B framing, probe it directly.
+    if annexb::is_annexb(bytes) {
+        match annexb::probe_annexb(bytes) {
+            Ok(desc) => return Ok(desc),
+            Err(ProbeError::EmptyInput) => return Err(ProbeError::EmptyInput),
+            Err(_) => {
+                // If Annex-B parsing could not extract an SPS (e.g. data happens to contain start codes
+                // but is actually a container format), attempt container sniffing before failing.
+                if let Ok(desc) = probe_bytes(bytes) {
+                    return Ok(desc);
+                }
+                return Err(ProbeError::Truncated("annexb"));
+            }
+        }
+    }
+
+    // Otherwise, try standard container probe_bytes
+    probe_bytes(bytes)
 }
 
 /// Read a file from disk and probe it.

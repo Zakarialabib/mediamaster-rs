@@ -108,6 +108,18 @@ impl TranscodePlan {
         }
     }
 
+    /// Decide the best transcode plan for a probed source (live stream or file asset)
+    /// described by a `mediamaster_probe::MediaDescriptor`.
+    pub fn for_descriptor(
+        descriptor: &mediamaster_probe::MediaDescriptor,
+        caps: &mediamaster_core::CapsMatrix,
+    ) -> Option<Self> {
+        let video = descriptor.video.as_ref()?;
+        let width = video.width?;
+        let height = video.height?;
+        Some(Self::for_device(width, height, caps))
+    }
+
     /// Produce a typed [`HlsJob`] routed through an [`EngineSelector`], acquiring
     /// hardware permits from a [`mediamaster_codec::CodecSlotManager`] with graceful fallback.
     #[cfg(feature = "hls")]

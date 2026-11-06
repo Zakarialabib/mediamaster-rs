@@ -27,6 +27,8 @@ pub enum Container {
     Gif,
     /// WebP still or animated image.
     Webp,
+    /// Raw elementary stream with Annex-B NAL unit framing (H.264 / H.265).
+    AnnexB,
 }
 
 impl Container {
@@ -44,6 +46,7 @@ impl Container {
             Container::Png => "png",
             Container::Gif => "gif",
             Container::Webp => "webp",
+            Container::AnnexB => "annexb",
         }
     }
 }

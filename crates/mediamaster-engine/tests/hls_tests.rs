@@ -178,3 +178,26 @@ fn test_transcode_plan_to_hls_job_integration() {
     assert_eq!(job.rendition.container, HlsContainer::Ts);
     assert_eq!(job.segmenter_config.segment_prefix, "stream_1080p");
 }
+
+#[test]
+fn test_transcode_plan_from_live_annexb_descriptor() {
+    let mut desc =
+        mediamaster_probe::types::MediaDescriptor::new(mediamaster_probe::types::Container::AnnexB);
+    let mut v =
+        mediamaster_probe::types::VideoInfo::new(mediamaster_probe::types::VideoCodec::H264);
+    v.width = Some(1920);
+    v.height = Some(1080);
+    desc.video = Some(v);
+
+    let caps = mediamaster_core::CapsMatrix {
+        codecs: vec![],
+        max_hw_decoder_instances: 2,
+        max_hw_encoder_instances: 1,
+        verified_on_hardware: true,
+    };
+
+    let plan = TranscodePlan::for_descriptor(&desc, &caps)
+        .expect("plan created from live stream descriptor");
+    assert_eq!(plan.resolution, (1920, 1080));
+    assert_eq!(plan.profile.max_frame_rate, 60);
+}
