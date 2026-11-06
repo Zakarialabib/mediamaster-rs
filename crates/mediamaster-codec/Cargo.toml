@@ -16,7 +16,7 @@ mediamaster-core = { path = "../mediamaster-core", version = "0.4.0" }
 thiserror = { workspace = true }
 windows = { version = "0.62", optional = true, features = ["Win32_Media_MediaFoundation", "Win32_System_Threading", "Win32_System_Com"] }
 ndk-context = { version = "0.1", optional = true }
-ndk = { version = "0.7", optional = true }
+ndk = { version = "0.9", optional = true }
 
 [dev-dependencies]
 serde = { workspace = true }
