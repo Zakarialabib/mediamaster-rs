@@ -31,3 +31,5 @@ default = []
 mf = ["dep:windows"]
 # Android MediaCodec NDK actor (src/ndk_codec.rs): ndk-context AndroidContext.
 mediacodec = ["dep:ndk-context", "dep:ndk"]
+# Pre-negotiates codec pipelines and pre-allocates buffers prior to first frame.
+warmup = []

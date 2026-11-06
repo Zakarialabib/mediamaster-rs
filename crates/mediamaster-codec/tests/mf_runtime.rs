@@ -59,3 +59,56 @@ fn mf_runtime_guard_drops_surfaces_before_shutdown() {
     // Drop should release all surfaces without panic.
     drop(guard);
 }
+
+#[test]
+fn mf_gpu_device_manager_validation() {
+    use mediamaster_codec::mf_actor::{validate_gpu_device_manager, MfError};
+
+    // Identical GPU device managers are valid
+    assert!(validate_gpu_device_manager(Some(123), Some(123)).is_ok());
+
+    // Mismatched GPU device managers are rejected (cross-process leak prevention)
+    let res_mismatch = validate_gpu_device_manager(Some(123), Some(456));
+    assert!(matches!(
+        res_mismatch,
+        Err(MfError::GpuDeviceManagerMismatch { .. })
+    ));
+
+    // Surface missing GPU device manager when actor requires one is rejected
+    let res_missing = validate_gpu_device_manager(Some(123), None);
+    assert!(matches!(
+        res_missing,
+        Err(MfError::GpuDeviceManagerMismatch { .. })
+    ));
+}
+
+#[test]
+fn mf_hevc_midstream_fallback_recovery() {
+    use mediamaster_codec::mf_actor::{fallback_hevc_to_h264, MfConfig, MfRuntimeGuard, MfSession};
+    use mediamaster_core::caps::Codec;
+
+    let mut guard = MfRuntimeGuard {
+        source_reader: None,
+        sink_writer: None,
+        transform: None,
+    };
+
+    let mut session = MfSession {
+        current_config: Some(MfConfig {
+            codec: Codec::Hevc,
+            target_format: "video/hevc".to_string(),
+            ..MfConfig::default()
+        }),
+        active_codec: Some(Codec::Hevc),
+        ..MfSession::default()
+    };
+
+    // Execute fallback
+    let new_cfg = fallback_hevc_to_h264(&mut session, &mut guard).expect("fallback succeeds");
+
+    // Must re-emit Config with H.264
+    assert_eq!(new_cfg.codec, Codec::H264);
+    assert_eq!(session.active_codec, Some(Codec::H264));
+    assert_eq!(session.frames_since_hevc_failure, 0);
+    assert!(session.stream_continued);
+}
