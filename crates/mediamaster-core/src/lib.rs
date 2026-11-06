@@ -16,6 +16,7 @@ extern crate alloc;
 pub mod caps;
 pub mod error;
 pub mod events;
+pub mod palette;
 pub mod policy;
 pub mod provisioning;
 pub mod traits;

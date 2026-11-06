@@ -17,6 +17,7 @@ categories = ["embedded", "hardware-support", "no-std"]
 serde-sync = ["dep:serde"]
 
 [dependencies]
+libm = "0.2"
 serde = { version = "1", default-features = false, features = ["alloc", "derive"], optional = true }
 
 [lib]
