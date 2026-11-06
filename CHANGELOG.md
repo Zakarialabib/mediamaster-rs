@@ -6,6 +6,16 @@
 
 ### Added
 
+- **mediamaster-ffi** (`0.1.0`, new crate): thin runtime-free FFI bridge —
+  `mediamaster_free()` reclaims the per-init heap; `mediamaster_log_init()`
+  wires a C-side callback for `logutil`'s `frame_pacer` diagnostics;
+  `mediamaster_set_log_level()` filters at the FFI boundary.
+  `mediamaster_transcode_init()` now returns `Ok`/`Err` for init failures.
+  Full `cargo test -p mediamaster-ffi` coverage.
+- **Annex-B elementary-stream probe** (`mediamaster-probe`): extracts NAL units
+  from raw H.264/H.265 bitstreams, building `MediaDescriptor` with codec
+  profile, level, and SPS/PPS/VPS parsing. Validates bitstream structure
+  without full decode.
 - **mediamaster-probe** (`0.3.0`, new crate): Pure-Rust, zero-FFmpeg container & bitstream header inspector (`mp4parse`, `matroska`, `symphonia-core`). Extracts codec profile, level, HDR10/P010 flags, chroma subsampling, and frame rate without spawning `ffmpeg`.
 - **mediamaster-codec** (`0.3.0`, new crate): Capability-aware codec slotting — `CodecSlotManager`, `DegradationTier` fallback ladder, `CapsDiscovery` seam (`SoftwareCapsDiscovery` portable fallback). Native MF/NDK actors scaffolded behind `mf`/`mediacodec` features (device-validation pending on Windows/Android).
 - **mediamaster-agent** (`0.3.0`, new crate): Live Paging & Sensor Ducking Loop — subscribes to the shared `EventBus` and commands `mediamaster-audio::Mixer` on `RoomState::EmergencyOverride` / live `RadioBurstDetected`. Unites `mediamaster-audio`, `mediamaster-sensors`, `mediamaster-rf`.
@@ -23,6 +33,7 @@
 
 ### Changed
 
+- **License**: Apache-2.0 (was MIT/Apache-2.0 dual).
 - **Directory naming**: crates renamed `probe` → `mediamaster-probe`, `codec` → `mediamaster-codec`, `agent` → `mediamaster-agent` (matching package names and workspace convention).
 - **README**: all 11 crates now have a comprehensive README.md in their directory.
 - **Docs**: new `docs/` directory with `MEDIA-SCOPE-SPEC.md`, `RELEASE.md`, `MIGRATION.md`, `architecture.md`, `masteraudio-rs.md`.
