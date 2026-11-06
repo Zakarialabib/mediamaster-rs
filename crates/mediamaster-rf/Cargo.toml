@@ -1,6 +1,6 @@
 [package]
 name = "mediamaster-rf"
-version = "0.3.0"
+version = "0.4.0"
 description = "SDR IQ pipeline, FFT detection, and protocol parsing for the mediamaster-rs ecosystem"
 authors = ["SignageMaster Team <team@signage-master.example.com>"]
 edition = "2021"
@@ -17,8 +17,8 @@ categories = ["science", "embedded"]
 tokio = { version = "1", features = ["sync", "macros", "rt"] }
 
 # Shared types, traits, and the event bus.
-mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
-mediamaster-bus = { path = "../mediamaster-bus", version = "0.3.0" }
+mediamaster-core = { path = "../mediamaster-core", version = "0.4.0" }
+mediamaster-bus = { path = "../mediamaster-bus", version = "0.4.0" }
 
 # DSP (FFT + detection).
 rustfft = "6.1"

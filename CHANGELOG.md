@@ -1,8 +1,8 @@
 # Changelog
 
-## [0.3.0] — 2026-11-06 (Expansion Target)
+## [0.4.0] — 2026-11-06 (Expansion Target & Synchronized Release)
 
-<!-- Coordinated 0.3.0 workspace release: probe, codec, agent, + purified core. See docs/RELEASE.md. -->
+<!-- Coordinated 0.4.0 workspace release: synchronized 0.4.0 baseline across all 13 workspace crates. See docs/RELEASE.md. -->
 
 ### Added
 

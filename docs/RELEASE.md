@@ -37,19 +37,21 @@ Because crates.io verifies dependencies on upload, publish order must follow the
     mediamaster-bus (depends on core)
     mediamaster-probe (standalone thiserror)
     mediamaster-codec (depends on core)
+    mediamaster-frame (depends on core)
+    mediamaster-ffi (depends on core)
 
 [Tier 3: Domain Crates]
     mediamaster-audio (depends on core, bus)
     mediamaster-rf (depends on core, bus)
     mediamaster-sensors (depends on core)
 
-[Tier 4: High-Level Coordination & Intelligence]
-    mediamaster-rag (depends on core, audio)
-    mediamaster-engine (depends on core, bus, audio, rf, sensors, probe, codec)
-    mediamaster-agent (depends on core, bus, audio, sensors, rf, codec, rag)
-
-[Tier 5: Integration Facade]
+[Tier 4: Domain Stores & Facades]
+    mediamaster-rag (depends on core, codec, audio)
     mediamaster-bridge (depends on core, bus, audio, sensors, rf)
+    mediamaster-engine (depends on core, bus, audio, rf, sensors, probe, codec, frame)
+
+[Tier 5: Top-Level Orchestration Agent]
+    mediamaster-agent (depends on core, bus, audio, sensors, rf, codec, rag, bridge)
 ```
 
 ---

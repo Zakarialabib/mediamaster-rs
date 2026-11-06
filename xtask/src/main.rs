@@ -32,16 +32,18 @@ const PUBLISH_ORDER: &[&str] = &[
     "mediamaster-bus",
     "mediamaster-probe",
     "mediamaster-codec",
+    "mediamaster-frame",
+    "mediamaster-ffi",
     // Tier 3 — domain crates
     "mediamaster-audio",
     "mediamaster-rf",
     "mediamaster-sensors",
-    // Tier 4 — coordination & intelligence
+    // Tier 4 — domain stores & facades
     "mediamaster-rag",
-    "mediamaster-engine",
-    "mediamaster-agent",
-    // Tier 5 — integration facade
     "mediamaster-bridge",
+    "mediamaster-engine",
+    // Tier 5 — top-level orchestration agent
+    "mediamaster-agent",
 ];
 
 fn main() -> ExitCode {

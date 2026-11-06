@@ -1,6 +1,6 @@
 [package]
 name = "mediamaster-agent"
-version = "0.3.0"
+version = "0.4.0"
 description = "Autonomous reconciliation loop uniting audio ducking, sensor context fusion, and RF signal presence"
 authors = ["SignageMaster Team <team@signage-master.example.com>"]
 edition = "2021"
@@ -11,14 +11,14 @@ keywords = ["autonomous", "coordination", "audio", "sensors", "rf"]
 categories = ["asynchronous", "hardware-support"]
 
 [dependencies]
-mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
-mediamaster-bus = { path = "../mediamaster-bus", version = "0.3.0" }
-mediamaster-audio = { path = "../mediamaster-audio", version = "0.3.0" }
-mediamaster-sensors = { path = "../mediamaster-sensors", version = "0.3.0" }
-mediamaster-rf = { path = "../mediamaster-rf", version = "0.3.0" }
-mediamaster-bridge = { path = "../mediamaster-bridge", version = "0.2.0" }
-mediamaster-rag = { path = "../mediamaster-rag", version = "0.1.0" }
-mediamaster-codec = { path = "../mediamaster-codec", version = "0.3.0" }
+mediamaster-core = { path = "../mediamaster-core", version = "0.4.0" }
+mediamaster-bus = { path = "../mediamaster-bus", version = "0.4.0" }
+mediamaster-audio = { path = "../mediamaster-audio", version = "0.4.0" }
+mediamaster-sensors = { path = "../mediamaster-sensors", version = "0.4.0" }
+mediamaster-rf = { path = "../mediamaster-rf", version = "0.4.0" }
+mediamaster-bridge = { path = "../mediamaster-bridge", version = "0.4.0" }
+mediamaster-rag = { path = "../mediamaster-rag", version = "0.4.0" }
+mediamaster-codec = { path = "../mediamaster-codec", version = "0.4.0" }
 thiserror = { workspace = true }
 serde = { workspace = true }
 toml = { workspace = true }

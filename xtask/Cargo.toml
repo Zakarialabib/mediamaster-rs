@@ -12,7 +12,7 @@ publish = false
 # async plane (shared `EventBus` + bridge event handlers), so it links the
 # integration facade (`mediamaster-bridge`) and a minimal tokio runtime.
 [dependencies]
-mediamaster-bridge = { path = "../crates/mediamaster-bridge", version = "0.2.0" }
-mediamaster-bus = { path = "../crates/mediamaster-bus", version = "0.3.0" }
-mediamaster-core = { path = "../crates/mediamaster-core", version = "0.3.0" }
+mediamaster-bridge = { path = "../crates/mediamaster-bridge", version = "0.4.0" }
+mediamaster-bus = { path = "../crates/mediamaster-bus", version = "0.4.0" }
+mediamaster-core = { path = "../crates/mediamaster-core", version = "0.4.0" }
 tokio = { workspace = true, features = ["rt", "time", "sync", "macros"] }

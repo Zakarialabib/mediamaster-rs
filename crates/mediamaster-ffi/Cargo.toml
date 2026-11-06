@@ -1,6 +1,6 @@
 [package]
 name = "mediamaster-ffi"
-version = "0.3.0"
+version = "0.4.0"
 description = "Thin, runtime-free C ABI FFI layer bridging mediamaster-rs to Tauri desktop and mobile companions"
 edition.workspace = true
 rust-version.workspace = true
@@ -12,6 +12,6 @@ repository.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
+mediamaster-core = { path = "../mediamaster-core", version = "0.4.0" }
 
 [dev-dependencies]

@@ -8,13 +8,13 @@ license = "Apache-2.0"
 publish = false
 
 [dependencies]
-mediamaster-core = { path = "../mediamaster-core", version = "0.3.0" }
-mediamaster-bus = { path = "../mediamaster-bus", version = "0.3.0" }
-mediamaster-rf = { path = "../mediamaster-rf", version = "0.3.0" }
-mediamaster-sensors = { path = "../mediamaster-sensors", version = "0.3.0" }
-mediamaster-audio = { path = "../mediamaster-audio", version = "0.3.0" }
-mediamaster-agent = { path = "../mediamaster-agent", version = "0.3.0" }
-mediamaster-bridge = { path = "../mediamaster-bridge", version = "0.2.0" }
-mediamaster-engine = { path = "../mediamaster-engine", version = "0.3.0" }
-mediamaster-codec = { path = "../mediamaster-codec", version = "0.3.0" }
+mediamaster-core = { path = "../mediamaster-core", version = "0.4.0" }
+mediamaster-bus = { path = "../mediamaster-bus", version = "0.4.0" }
+mediamaster-rf = { path = "../mediamaster-rf", version = "0.4.0" }
+mediamaster-sensors = { path = "../mediamaster-sensors", version = "0.4.0" }
+mediamaster-audio = { path = "../mediamaster-audio", version = "0.4.0" }
+mediamaster-agent = { path = "../mediamaster-agent", version = "0.4.0" }
+mediamaster-bridge = { path = "../mediamaster-bridge", version = "0.4.0" }
+mediamaster-engine = { path = "../mediamaster-engine", version = "0.4.0" }
+mediamaster-codec = { path = "../mediamaster-codec", version = "0.4.0" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
