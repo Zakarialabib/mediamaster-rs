@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.3.0] — Unreleased (Expansion Target)
+## [0.3.0] — 2026-11-06 (Expansion Target)
 
 <!-- Coordinated 0.3.0 workspace release: probe, codec, agent, + purified core. See docs/RELEASE.md. -->
 

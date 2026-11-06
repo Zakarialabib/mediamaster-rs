@@ -22,15 +22,16 @@ mediamaster-rs/
 |---|---|---|---|---|
 | `mediamaster-core` | `mediamaster-core` | 0.3.0 | ✅ | Pure Rust, `#![no_std]`+`alloc`, `EventBus` relocated, `CapsMatrix` vocabulary, `RoomState::EmergencyOverride` |
 | `mediamaster-bus` | `mediamaster-bus` | 0.3.0 | ✅ | `EventBus` (`tokio::sync::broadcast`) — the unified app event bus |
-| `mediamaster-probe` | `mediamaster-probe` | 0.3.0 | ✅ | Zero-FFmpeg container & bitstream inspector (MP4, MKV, WebM, MPEG-TS, MP3, ADTS/AAC, FLAC, WAV/RF64, JPEG, PNG, GIF, WebP) |
+| `mediamaster-probe` | `mediamaster-probe` | 0.3.0 | ✅ | Zero-FFmpeg container & bitstream inspector (MP4, MKV, WebM, MPEG-TS, MP3, ADTS/AAC, FLAC, WAV/RF64, JPEG, PNG, GIF, WebP, Annex-B NAL probe) |
 | `mediamaster-codec` | `mediamaster-codec` | 0.3.0 | ✅ (portable) | Capability-aware codec slotting, `CapsMatrix`, `DegradationTier` fallback |
 | `mediamaster-audio` | `mediamaster-audio` | 0.3.0 | ✅ | Typed audio zones, `DuckingProfile`, `PagingJitterBuffer` (live paging) |
 | `mediamaster-agent` | `mediamaster-agent` | 0.3.0 | ✅ | Live Paging & Sensor Ducking Loop — control plane |
 | `mediamaster-engine` | `mediamaster-engine` | 0.3.0 | ✅ | Coordination layer: `AudioBus`, `TranscodePlan`, `EngineSelector` |
-| `mediamaster-rag` | `mediamaster-rag` | 0.1.0 | ✅ | Acoustic profiles, codec matrix, sensor-context knowledge store |
+| `mediamaster-rag` | `mediamaster-rag` | 0.3.0 | ✅ | Acoustic profiles, codec matrix, sensor-context knowledge store |
 | `mediamaster-rf` | `mediamaster-rf` | 0.3.0 | 0.2.0 pub (0.3.0 pending) | OOK/ASK demodulator, 3-stage pipeline, real parser |
 | `mediamaster-sensors` | `mediamaster-sensors` | 0.3.0 | 0.2.0 pub (0.3.0 pending) | Sensor reading, debounce, fusion context, hardware (`hw`) backends |
 | `mediamaster-bridge` | `mediamaster-bridge` | 0.2.0 | 0.1.0 pub (0.2.0 pending) | App-integration facade: `AudioBridge`, `SensorBridge`, `RfBridge`, enumerators, event bus |
+| `mediamaster-ffi` | `mediamaster-ffi` | 0.3.0 | 🆕 | Thin runtime-free FFI bridge for C interop |
 
 ## Native codec actors (scaffolded, device-validation-pending)
 
@@ -57,7 +58,7 @@ cargo test --workspace                              # all tests green
 crates/
 ├── mediamaster-core/     # pure Rust types + EventBus
 ├── mediamaster-bus/      # EventBus (tokio broadcast)
-├── mediamaster-probe/    # container/head inspect
+├── mediamaster-probe/    # container/head inspect + Annex-B NAL probe
 ├── mediamaster-codec/    # codec slotting + caps matrix
 ├── mediamaster-audio/    # zones, ducking, jitter buffer
 ├── mediamaster-agent/    # live paging + sensor ducking loop
@@ -65,7 +66,8 @@ crates/
 ├── mediamaster-rag/      # acoustic models + knowledge store
 ├── mediamaster-rf/       # RF demod + pipeline
 ├── mediamaster-sensors/  # readings, debounce, fusion, hw backends
-└── mediamaster-bridge/   # provenance facade
+├── mediamaster-bridge/   # provenance facade
+└── mediamaster-ffi/      # thin runtime-free FFI bridge
 ```
 
 ## Publishing (reference)
