@@ -7,12 +7,16 @@ use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 
 use crate::caps::{Codec, DegradationTier};
-use crate::types::{BoundingBox, RadioBurst, RoomState};
+use crate::types::{BoundingBox, DomainAuditEntry, RadioBurst, RoomState, SignageCommand};
 
 /// Every event the ecosystem publishes and consumers subscribe to.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde-sync", derive(Serialize, Deserialize))]
 pub enum HardwareEvent {
+    /// A command directed to a signage display endpoint (e.g. `tv-rs-agent`).
+    Signage { command: SignageCommand },
+    /// An audit entry emitted when cross-workspace orchestration occurs (e.g. emergency ducking + asset switch).
+    AuditLogged { entry: DomainAuditEntry },
     /// High-priority event requested a volume duck on a named audio source.
     AudioDuckRequest {
         source: String,
@@ -89,6 +93,8 @@ pub enum HardwareEvent {
 impl HardwareEvent {
     pub fn event_name(&self) -> &'static str {
         match self {
+            HardwareEvent::Signage { .. } => "Signage",
+            HardwareEvent::AuditLogged { .. } => "AuditLogged",
             HardwareEvent::AudioDuckRequest { .. } => "AudioDuckRequest",
             HardwareEvent::SensorContextChange { .. } => "SensorContextChange",
             HardwareEvent::RadioBurstDetected { .. } => "RadioBurstDetected",

@@ -16,7 +16,7 @@ pub mod source;
 pub mod zones;
 
 pub use ducking::{AutomationCommand, DuckingCurve, DuckingProfile, IirSmoothing};
-pub use jitter::{PagingJitterBuffer, PagingSource};
+pub use jitter::{PacingAck, PagingJitterBuffer, PagingSource};
 pub use mixer::Mixer;
 pub use opus_source::{OpusError, OpusPagingSource, OPUS_FRAME_SAMPLES_20MS, OPUS_SAMPLE_RATE};
 #[cfg(feature = "audio-cpal")]

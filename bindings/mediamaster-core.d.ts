@@ -124,7 +124,25 @@ export type SensorReading =
   | "Occupancy"
   | "Open"
   | "Closed"
+  | { CctvDetection: { confidence: number; is_emergency: boolean } }
   | "Unknown";
+
+/**
+ * Commands for signage display endpoints (e.g. tv-rs-agent or signage frontends).
+ */
+export type SignageCommand =
+  | { EmergencyAsset: { zone: string; asset_blake3: number[] } }
+  | { ClearEmergency: { zone: string } };
+
+/**
+ * A cryptographic multi-domain audit record for compliance and provenance.
+ */
+export interface DomainAuditEntry {
+  cctv_detection_sig: string;
+  signage_command_sig: string;
+  audio_ducking_sig: string;
+  timestamp_ms: number;
+}
 
 /**
  * A detected RF signal — whatever a user's SignalDetector decides it is.
@@ -181,6 +199,16 @@ export type HardwareEvent =
         ambient_lux: number;
         lux_rate_of_change: number;
         rf_burst_frequency: number;
+      };
+    }
+  | {
+      Signage: {
+        command: SignageCommand;
+      };
+    }
+  | {
+      AuditLogged: {
+        entry: DomainAuditEntry;
       };
     };
 
