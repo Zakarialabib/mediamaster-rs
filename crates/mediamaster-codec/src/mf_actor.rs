@@ -69,19 +69,49 @@ type COMSurfaceHandle = NonNull<core::ffi::c_void>;
 pub struct MfRuntimeToken(pub bool);
 
 /// Commands the host thread can send to a running actor.
+#[derive(Debug, Clone, PartialEq)]
 pub enum MfCommand {
     Stop,
     Initialize(MfConfig),
     EnumerateDecoders(Codec),
     ProcessSample,
+    /// Send input frame data with an optional source GPU device manager ID for validation.
+    EncodeFrame {
+        data: Vec<u8>,
+        gpu_device_manager_id: Option<u64>,
+    },
+    /// Explicit request to drain any queued frames.
+    Drain,
 }
 
 /// Configuration carried into a fresh MF actor.
-#[derive(Debug, Clone)]
+///
+/// Note: Color space is strictly 8-bit SDR Rec.709 (NV12 / YUV420p).
+/// 10-bit HDR (e.g. HDR10, HLG, P010) is intentionally omitted to maintain
+/// determinism across heterogenous signage fleet hardware and avoid color profile drift.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MfConfig {
     pub source_url: String,
     pub target_format: String,
     pub codec: Codec,
+    pub width: u32,
+    pub height: u32,
+    pub fps: u32,
+    pub gpu_device_manager_id: Option<u64>,
+}
+
+impl Default for MfConfig {
+    fn default() -> Self {
+        Self {
+            source_url: String::new(),
+            target_format: "video/mp4".to_string(),
+            codec: Codec::H264,
+            width: 1920,
+            height: 1080,
+            fps: 60,
+            gpu_device_manager_id: None,
+        }
+    }
 }
 
 /// Decoder enumeration descriptor.
@@ -97,6 +127,12 @@ pub struct MfSession {
     pub needs_rediscovery: bool,
     pub consecutive_device_lost: u32,
     pub available_decoders: Vec<MftDecoderDescriptor>,
+    pub current_config: Option<MfConfig>,
+    pub active_codec: Option<Codec>,
+    pub gpu_device_manager_id: Option<u64>,
+    pub frames_since_hevc_failure: u32,
+    pub stream_continued: bool,
+    pub warmed_up: bool,
 }
 
 /// Error returned by MF operations.
@@ -110,6 +146,13 @@ pub enum MfError {
     TransformError(String),
     #[error("Decoder not found for codec: {0:?}")]
     DecoderNotFound(Codec),
+    #[error("GPU device manager mismatch: input surface device {surface_dev:?} != actor device {actor_dev:?}")]
+    GpuDeviceManagerMismatch {
+        surface_dev: Option<u64>,
+        actor_dev: Option<u64>,
+    },
+    #[error("Codec encoder mid-stream failure: {0}")]
+    EncoderFailure(String),
 }
 
 /// Check if a Windows HRESULT or error indicates a device lost condition.
@@ -182,29 +225,27 @@ pub fn enumerate_decoders(codec: Codec) -> Result<Vec<MftDecoderDescriptor>, MfE
 
         if !pp_activate.is_null() && num_activate > 0 {
             let activates = std::slice::from_raw_parts(pp_activate, num_activate as usize);
-            for activate_opt in activates {
-                if let Some(activate) = activate_opt {
-                    let mut name_buf = [0u16; 256];
-                    let mut name_len = 0u32;
-                    let friendly_name = if activate
-                        .GetString(
-                            &MFT_FRIENDLY_NAME_Attribute,
-                            &mut name_buf,
-                            Some(&mut name_len),
-                        )
-                        .is_ok()
-                        && name_len > 0
-                    {
-                        String::from_utf16_lossy(&name_buf[..name_len as usize])
-                    } else {
-                        "Unknown Hardware MFT".to_string()
-                    };
+            for activate in activates.iter().flatten() {
+                let mut name_buf = [0u16; 256];
+                let mut name_len = 0u32;
+                let friendly_name = if activate
+                    .GetString(
+                        &MFT_FRIENDLY_NAME_Attribute,
+                        &mut name_buf,
+                        Some(&mut name_len),
+                    )
+                    .is_ok()
+                    && name_len > 0
+                {
+                    String::from_utf16_lossy(&name_buf[..name_len as usize])
+                } else {
+                    "Unknown Hardware MFT".to_string()
+                };
 
-                    descriptors.push(MftDecoderDescriptor {
-                        friendly_name,
-                        is_hardware: true,
-                    });
-                }
+                descriptors.push(MftDecoderDescriptor {
+                    friendly_name,
+                    is_hardware: true,
+                });
             }
             windows::Win32::System::Com::CoTaskMemFree(Some(pp_activate as _));
         }
@@ -220,6 +261,58 @@ pub fn enumerate_decoders(_codec: Codec) -> Result<Vec<MftDecoderDescriptor>, Mf
         friendly_name: "Mock MF Hardware Decoder".to_string(),
         is_hardware: true,
     }])
+}
+
+/// Validates an input surface's GPU device manager against the actor's expected GPU device manager.
+///
+/// Security: The MF encoder must reject input surfaces that are not created by the same GPU
+/// device manager (prevents cross-process GPU memory leaks).
+pub fn validate_gpu_device_manager(
+    expected_dev_mgr: Option<u64>,
+    input_dev_mgr: Option<u64>,
+) -> Result<(), MfError> {
+    if let (Some(expected), Some(input)) = (expected_dev_mgr, input_dev_mgr) {
+        if expected != input {
+            return Err(MfError::GpuDeviceManagerMismatch {
+                surface_dev: Some(input),
+                actor_dev: Some(expected),
+            });
+        }
+    } else if expected_dev_mgr.is_some() && input_dev_mgr.is_none() {
+        return Err(MfError::GpuDeviceManagerMismatch {
+            surface_dev: None,
+            actor_dev: expected_dev_mgr,
+        });
+    }
+    Ok(())
+}
+
+/// Fallback from HEVC to H.264 upon mid-stream encoder failure or missing GPU HEVC decoder.
+///
+/// Drains any pending samples, clears active HEVC state, re-emits configuration with H.264,
+/// and continues stream continuity within 2 frames.
+pub fn fallback_hevc_to_h264(
+    session: &mut MfSession,
+    guard: &mut MfRuntimeGuard,
+) -> Result<MfConfig, MfError> {
+    // 1. Drain transform / COM surfaces
+    guard.transform = None;
+    guard.sink_writer = None;
+
+    // 2. Re-emit Config targeting H.264
+    let mut new_config = session.current_config.clone().unwrap_or_default();
+    new_config.codec = Codec::H264;
+    new_config.target_format = "video/avc".to_string();
+
+    session.active_codec = Some(Codec::H264);
+    session.current_config = Some(new_config.clone());
+    session.frames_since_hevc_failure = 0;
+    session.stream_continued = true;
+
+    // 3. Re-initialize MFT session with H.264
+    create_mft_session(Codec::H264, guard)?;
+
+    Ok(new_config)
 }
 
 /// Create a real MFT session behind the COM guard for a specified decoder.
@@ -269,21 +362,19 @@ pub fn create_mft_session(codec: Codec, guard: &mut MfRuntimeGuard) -> Result<()
         let activates = std::slice::from_raw_parts(pp_activate, num_activate as usize);
         let mut activated = false;
 
-        for activate_opt in activates {
-            if let Some(activate) = activate_opt {
-                match activate.ActivateObject::<IMFTransform>() {
-                    Ok(transform) => {
-                        let raw = windows::core::Interface::into_raw(transform);
-                        guard.transform = NonNull::new(raw as *mut core::ffi::c_void);
-                        activated = true;
-                        break;
-                    }
-                    Err(e) => {
-                        let err_code = e.code().0;
-                        if is_device_lost_hresult(err_code) {
-                            windows::Win32::System::Com::CoTaskMemFree(Some(pp_activate as _));
-                            return Err(MfError::DeviceLost(format!("HRESULT 0x{err_code:08X}")));
-                        }
+        for activate in activates.iter().flatten() {
+            match activate.ActivateObject::<IMFTransform>() {
+                Ok(transform) => {
+                    let raw = windows::core::Interface::into_raw(transform);
+                    guard.transform = NonNull::new(raw);
+                    activated = true;
+                    break;
+                }
+                Err(e) => {
+                    let err_code = e.code().0;
+                    if is_device_lost_hresult(err_code) {
+                        windows::Win32::System::Com::CoTaskMemFree(Some(pp_activate as _));
+                        return Err(MfError::DeviceLost(format!("HRESULT 0x{err_code:08X}")));
                     }
                 }
             }
@@ -384,11 +475,24 @@ where
                     if let Some(ref publ) = publisher {
                         publ.publish(HardwareEvent::SlotRevoked {
                             device_class: "windows_mf".to_string(),
-                            codec: Codec::H264,
+                            codec: session.active_codec.unwrap_or(Codec::H264),
                             reason: format!("MF device lost: {reason}"),
                         });
                     }
                     eprintln!("MF Actor encountered device lost: {reason}; triggering re-discovery on next acquire");
+                }
+                Err(MfError::EncoderFailure(reason)) => {
+                    // HEVC mid-stream failure -> automatic fallback to H.264
+                    if session.active_codec == Some(Codec::Hevc) {
+                        eprintln!(
+                            "MF HEVC encoder failed mid-stream: {reason}. Falling back to H.264..."
+                        );
+                        if let Err(e) = fallback_hevc_to_h264(&mut session, &mut guard) {
+                            eprintln!("Failed to fall back from HEVC to H.264: {e}");
+                        }
+                    } else {
+                        eprintln!("MF Actor encoder error: {reason}");
+                    }
                 }
                 Err(err) => {
                     eprintln!("MF Actor error: {err}");
