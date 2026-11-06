@@ -14,7 +14,7 @@ categories = ["multimedia::audio", "embedded"]
 [dependencies]
 mediamaster-core = { path = "../mediamaster-core", version = "0.4.0" }
 mediamaster-bus = { path = "../mediamaster-bus", version = "0.4.0" }
-ringbuf = { version = "0.3", features = ["alloc"] }
+ringbuf = { version = "0.6", features = ["alloc"] }
 serde = { workspace = true }
 thiserror = { workspace = true }
 
