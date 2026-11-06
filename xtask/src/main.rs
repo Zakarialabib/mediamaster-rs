@@ -114,7 +114,12 @@ fn publish(args: &[String]) -> ExitCode {
             if dry_run { " --dry-run" } else { "" }
         );
         match cmd.status() {
-            Ok(status) if status.success() => {}
+            Ok(status) if status.success() => {
+                if !dry_run {
+                    println!("xtask: uploaded {name}; waiting 15s for index propagation...");
+                    std::thread::sleep(std::time::Duration::from_secs(15));
+                }
+            }
             Ok(status) => {
                 eprintln!("xtask: `cargo publish -p {name}` failed ({status})");
                 return ExitCode::FAILURE;
